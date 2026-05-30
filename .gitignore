@@ -1,0 +1,13 @@
+# 데이터·대용량은 추적하지 않는다. 새 도구(editor/)와 기획문서(docs/)만 올린다.
+# (img/ 4.4GB, org/ corpus/ graph/ 등 데이터는 GitHub에 올리지 않음)
+/*
+!/.gitignore
+!/editor/
+!/docs/
+
+# editor 내부 산출물(빌드·로컬 DB)은 제외
+editor/*.db
+editor/**/*.db
+editor/build/
+editor/**/*.exe
+editor/**/*.test
