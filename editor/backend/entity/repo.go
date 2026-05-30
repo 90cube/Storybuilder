@@ -156,6 +156,28 @@ func diffEntities(old, neu Entity) map[string]any {
 	return ch
 }
 
+// Delete는 expectedVersion이 맞을 때만 삭제한다. 다르거나 없으면 ErrVersionConflict.
+func Delete(db *sql.DB, id string, expectedVersion int, who string) error {
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	res, err := tx.Exec(`DELETE FROM entities WHERE id=? AND version=?`, id, expectedVersion)
+	if err != nil {
+		return fmt.Errorf("delete: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrVersionConflict
+	}
+	if err := writeLog(tx, who, "delete", "entities", id,
+		map[string]any{"deleted": true}, expectedVersion); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
 // writeLog는 sys_edit_log에 변경 1줄을 기록한다(같은 트랜잭션 내).
 func writeLog(tx *sql.Tx, who, action, table, targetID string, changes map[string]any, versionAfter int) error {
 	cj, err := marshalJSON(changes)
