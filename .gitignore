@@ -4,6 +4,7 @@
 #       기타 모든 최상위 항목.
 /*
 !/.gitignore
+!/README.md
 !/editor/
 
 # editor 내부 산출물(빌드·로컬 DB)은 제외 — DB 파일은 절대 추적하지 않는다
