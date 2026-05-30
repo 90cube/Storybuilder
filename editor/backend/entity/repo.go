@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"reflect"
 	"time"
 
 	"storybuilder-editor/backend/schemadef"
@@ -85,6 +86,74 @@ func Create(db *sql.DB, reg *schemadef.Registry, e Entity, who string) error {
 		return err
 	}
 	return tx.Commit()
+}
+
+// Update는 expectedVersion이 현재 버전과 같을 때만 수정한다(낙관적 잠금).
+// 다르면 ErrVersionConflict. 변경분을 update 로그로 남긴다.
+func Update(db *sql.DB, reg *schemadef.Registry, e Entity, expectedVersion int, who string) error {
+	if miss := RequiredMissing(reg, e); len(miss) > 0 {
+		return &ValidationError{Missing: miss}
+	}
+	old, err := Get(db, e.ID)
+	if err != nil {
+		return err
+	}
+	if e.Provenance == "" {
+		e.Provenance = old.Provenance
+	}
+	newVersion := expectedVersion + 1
+	e.UpdatedAt = time.Now().UTC()
+	e.UpdatedBy = who
+
+	tags, err := marshalJSON(e.Tags)
+	if err != nil {
+		return err
+	}
+	data, err := marshalJSON(e.Data)
+	if err != nil {
+		return err
+	}
+
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	res, err := tx.Exec(`UPDATE entities
+	  SET name=?,type=?,tags=?,data=?,provenance=?,review_needed=?,version=?,updated_at=?,updated_by=?
+	  WHERE id=? AND version=?`,
+		e.Name, e.Type, tags, data, e.Provenance, b2i(e.ReviewNeeded),
+		newVersion, e.UpdatedAt.Format(time.RFC3339), who, e.ID, expectedVersion)
+	if err != nil {
+		return fmt.Errorf("update: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrVersionConflict
+	}
+	if err := writeLog(tx, who, "update", "entities", e.ID, diffEntities(old, e), newVersion); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// diffEntities는 바뀐 필드만 {필드:[전,후]}로 돌려준다.
+func diffEntities(old, neu Entity) map[string]any {
+	ch := map[string]any{}
+	if old.Name != neu.Name {
+		ch["name"] = []any{old.Name, neu.Name}
+	}
+	for k, nv := range neu.Data {
+		if ov, ok := old.Data[k]; !ok || !reflect.DeepEqual(ov, nv) {
+			ch["data."+k] = []any{old.Data[k], nv}
+		}
+	}
+	for k, ov := range old.Data {
+		if _, ok := neu.Data[k]; !ok {
+			ch["data."+k] = []any{ov, nil}
+		}
+	}
+	return ch
 }
 
 // writeLog는 sys_edit_log에 변경 1줄을 기록한다(같은 트랜잭션 내).
