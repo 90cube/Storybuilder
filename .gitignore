@@ -5,9 +5,14 @@
 !/editor/
 !/docs/
 
-# editor 내부 산출물(빌드·로컬 DB)은 제외
-editor/*.db
-editor/**/*.db
+# editor 내부 산출물(빌드·로컬 DB)은 제외 — DB 파일은 절대 추적하지 않는다
 editor/build/
 editor/**/*.exe
 editor/**/*.test
+# 모든 DB 파일 (어느 위치든)
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+*.db-wal
+*.db-shm
