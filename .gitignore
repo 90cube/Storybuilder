@@ -1,9 +1,10 @@
-# 데이터·대용량은 추적하지 않는다. 새 도구(editor/)와 기획문서(docs/)만 올린다.
-# (img/ 4.4GB, org/ corpus/ graph/ 등 데이터는 GitHub에 올리지 않음)
+# 추적 대상은 제품 코드(editor/)뿐. 그 외 전부 제외(allowlist 방식).
+# 제외: 데이터(img 4.4GB·corpus·graph·org), 문서(docs),
+#       도구 부산물(.omx·.playwright-cli·.pytest_cache·.claude·extglob 등),
+#       기타 모든 최상위 항목.
 /*
 !/.gitignore
 !/editor/
-!/docs/
 
 # editor 내부 산출물(빌드·로컬 DB)은 제외 — DB 파일은 절대 추적하지 않는다
 editor/build/
