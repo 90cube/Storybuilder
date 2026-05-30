@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>스토리빌더 에디터</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 0; display: flex; height: 100vh; }
+  #left { width: 320px; border-right: 1px solid #ccc; padding: 12px; overflow-y: auto; }
+  #right { flex: 1; padding: 16px; overflow-y: auto; }
+  .row { padding: 6px 8px; cursor: pointer; border-radius: 4px; }
+  .row:hover { background: #eef; }
+  .badge { color: #c00; font-size: 11px; }
+  label { display: block; margin: 8px 0 2px; font-size: 13px; }
+  .req::after { content: " *"; color: #c00; }
+  input, textarea, select { width: 100%; box-sizing: border-box; padding: 6px; }
+  button { margin-top: 12px; padding: 8px 14px; }
+  button:disabled { opacity: .5; }
+  #msg { color: #c00; margin-top: 8px; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<div id="left">
+  <input id="search" placeholder="이름 검색...">
+  <select id="filterType"><option value="">전체 타입</option></select>
+  <div id="list"></div>
+</div>
+<div id="right">
+  <h3>새 엔티티</h3>
+  <label class="req">타입</label>
+  <select id="formType"></select>
+  <div id="fields"></div>
+  <button id="save" disabled>저장</button>
+  <div id="msg"></div>
+</div>
+<script>
+let schema = {base: [], types: []};
+
+async function loadSchema() {
+  schema = await (await fetch('/api/schema')).json();
+  const ft = document.getElementById('formType'), flt = document.getElementById('filterType');
+  for (const t of schema.types) {
+    ft.add(new Option(t.label || t.type, t.type));
+    flt.add(new Option(t.label || t.type, t.type));
+  }
+  renderForm(); refreshList();
+}
+
+function activeFields() {
+  const t = document.getElementById('formType').value;
+  const td = schema.types.find(x => x.type === t) || {fields: []};
+  return [...schema.base, ...td.fields];
+}
+
+function renderForm() {
+  const box = document.getElementById('fields');
+  box.innerHTML = '';
+  for (const f of activeFields()) {
+    const lbl = document.createElement('label');
+    lbl.textContent = f.label || f.key;
+    if (f.required) lbl.className = 'req';
+    const inp = (f.datatype === 'text')
+      ? document.createElement('textarea') : document.createElement('input');
+    inp.id = 'f_' + f.key; inp.dataset.key = f.key; inp.dataset.req = f.required ? '1' : '';
+    inp.dataset.base = schema.base.includes(f) ? '1' : '';
+    inp.oninput = checkRequired;
+    box.appendChild(lbl); box.appendChild(inp);
+  }
+  checkRequired();
+}
+
+function checkRequired() {
+  let ok = true;
+  for (const f of activeFields()) {
+    if (f.required) { const el = document.getElementById('f_' + f.key); if (!el.value.trim()) ok = false; }
+  }
+  document.getElementById('save').disabled = !ok;
+}
+
+document.getElementById('formType').onchange = renderForm;
+
+document.getElementById('save').onclick = async () => {
+  const t = document.getElementById('formType').value;
+  const body = {type: t, data: {}, tags: []};
+  for (const f of activeFields()) {
+    const v = document.getElementById('f_' + f.key).value;
+    if (f.key === 'name') body.name = v;
+    else if (f.key === 'id') body.id = v;
+    else body.data[f.key] = v;
+  }
+  if (!body.id) body.id = (body.name || 'e') + '_' + Date.now();
+  const res = await fetch('/api/entity', {method: 'POST', body: JSON.stringify(body)});
+  const j = await res.json();
+  document.getElementById('msg').textContent = res.ok
+    ? '저장됨: ' + j.id
+    : (j.missing ? '필수 누락: ' + j.missing.join(', ') : ('오류: ' + (j.error||'')));
+  if (res.ok) refreshList();
+};
+
+async function refreshList() {
+  const q = document.getElementById('search').value;
+  const t = document.getElementById('filterType').value;
+  const list = await (await fetch('/api/entities?q=' + encodeURIComponent(q) + '&type=' + t)).json();
+  const box = document.getElementById('list');
+  box.innerHTML = '';
+  for (const e of list) {
+    const d = document.createElement('div');
+    d.className = 'row';
+    d.innerHTML = e.name + ' <small>(' + e.type + ')</small>'
+      + (e.review_needed ? ' <span class="badge">검토</span>' : '');
+    d.onclick = () => showEntity(e.id);
+    box.appendChild(d);
+  }
+}
+document.getElementById('search').oninput = refreshList;
+document.getElementById('filterType').onchange = refreshList;
+
+async function showEntity(id) {
+  const j = await (await fetch('/api/entity/' + encodeURIComponent(id))).json();
+  document.getElementById('msg').textContent = JSON.stringify(j, null, 2);
+}
+
+loadSchema();
+</script>
+</body>
+</html>
