@@ -1,13 +1,22 @@
 package migrate
 
 import (
+	"crypto/rand"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"time"
 
 	"storybuilder-editor/backend/entity"
 	"storybuilder-editor/backend/schemadef"
 )
+
+// newID는 이관용 짧은 고유 id(16진수 8바이트).
+func newID() string {
+	b := make([]byte, 8)
+	_, _ = rand.Read(b)
+	return hex.EncodeToString(b)
+}
 
 // Paths는 원천 파일 경로 묶음.
 type Paths struct {
@@ -87,7 +96,7 @@ func Run(db *sql.DB, reg *schemadef.Registry, p Paths) (Report, error) {
 			if _, err := db.Exec(`INSERT INTO relations
 			  (id,from_id,rel,to_id,pair_id,version,updated_at,updated_by)
 			  VALUES (?,?,?,?,?,?,?,?)`,
-				jsonStr([]string{r.FromID, r.Rel, r.ToID, now}), r.FromID, r.Rel, r.ToID,
+				newID(), r.FromID, r.Rel, r.ToID,
 				"", 1, now, "import"); err != nil {
 				return rep, err
 			}
