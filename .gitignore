@@ -16,3 +16,12 @@ editor/**/*.test
 *.db-journal
 *.db-wal
 *.db-shm
+
+# 도구·OS·IDE 부산물 (프로젝트와 직접 무관)
+.claude/
+.vscode/
+.idea/
+*.tmp
+*.log
+.DS_Store
+Thumbs.db
