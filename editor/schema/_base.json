@@ -1,0 +1,9 @@
+{
+  "base_fields": [
+    { "key": "id",         "label": "ID",   "datatype": "string", "required": true,  "system": true },
+    { "key": "name",       "label": "이름", "datatype": "string", "required": true },
+    { "key": "type",       "label": "타입", "datatype": "string", "required": true,  "system": true },
+    { "key": "tags",       "label": "태그", "datatype": "list" },
+    { "key": "provenance", "label": "출처", "datatype": "enum", "values": ["authored","imported"], "default": "authored", "system": true }
+  ]
+}

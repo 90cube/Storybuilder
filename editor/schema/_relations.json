@@ -1,0 +1,8 @@
+{
+  "relations": [
+    { "rel": "제자",   "inverse": "스승" },
+    { "rel": "스승",   "inverse": "제자" },
+    { "rel": "소속",   "inverse": "구성원" },
+    { "rel": "동맹",   "inverse": "동맹" }
+  ]
+}
