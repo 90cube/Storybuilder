@@ -55,6 +55,28 @@ func AddRelation(db *sql.DB, reg *schemadef.Registry, fromID, rel, toID, who str
 	return tx.Commit()
 }
 
+// DeleteRelation은 pairID로 묶인 정/역 두 줄을 함께 삭제한다.
+func DeleteRelation(db *sql.DB, pairID, who string) error {
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	res, err := tx.Exec(`DELETE FROM relations WHERE pair_id=?`, pairID)
+	if err != nil {
+		return fmt.Errorf("delete: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrNotFound
+	}
+	if err := writeLog(tx, who, "delete", "relations", pairID,
+		map[string]any{"deleted_pair": pairID}, 0); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
 // ListRelations은 entityID에서 나가는 관계 목록(정방향 시점)을 돌려준다.
 // 양방향 저장이라 주입된 역방향도 해당 엔티티 기준으로 여기에 포함된다.
 func ListRelations(db *sql.DB, entityID string) ([]Relation, error) {

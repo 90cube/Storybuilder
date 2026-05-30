@@ -59,3 +59,27 @@ func TestAddRelationUnknownRel(t *testing.T) {
 		t.Fatal("unknown rel should error")
 	}
 }
+
+func TestDeleteRelationRemovesPair(t *testing.T) {
+	reg := relTestRegistry()
+	db := newTestDB(t, reg)
+	if err := AddRelation(db, reg, "kalix", "제자", "hilder", "u"); err != nil {
+		t.Fatal(err)
+	}
+	kRels, _ := ListRelations(db, "kalix")
+	pair := kRels[0].PairID
+
+	if err := DeleteRelation(db, pair, "u"); err != nil {
+		t.Fatalf("delete: %v", err)
+	}
+	// 양쪽 다 사라져야 함
+	k, _ := ListRelations(db, "kalix")
+	h, _ := ListRelations(db, "hilder")
+	if len(k) != 0 || len(h) != 0 {
+		t.Fatalf("both sides should be gone, got k=%d h=%d", len(k), len(h))
+	}
+	// 없는 pair 삭제 → ErrNotFound
+	if err := DeleteRelation(db, "nope", "u"); err == nil {
+		t.Fatal("deleting missing pair should error")
+	}
+}
