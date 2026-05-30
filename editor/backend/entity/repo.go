@@ -5,7 +5,10 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"time"
+
+	"storybuilder-editor/backend/schemadef"
 )
 
 // Get은 id로 엔티티 한 건을 읽는다. 없으면 ErrNotFound.
@@ -40,6 +43,48 @@ func newLogID() string {
 	b := make([]byte, 8)
 	_, _ = rand.Read(b)
 	return hex.EncodeToString(b)
+}
+
+// Create는 새 엔티티를 만든다. 필수칸 누락이면 ValidationError.
+func Create(db *sql.DB, reg *schemadef.Registry, e Entity, who string) error {
+	if miss := RequiredMissing(reg, e); len(miss) > 0 {
+		return &ValidationError{Missing: miss}
+	}
+	if e.Provenance == "" {
+		e.Provenance = "authored"
+	}
+	e.Version = 1
+	e.UpdatedAt = time.Now().UTC()
+	e.UpdatedBy = who
+
+	tags, err := marshalJSON(e.Tags)
+	if err != nil {
+		return err
+	}
+	data, err := marshalJSON(e.Data)
+	if err != nil {
+		return err
+	}
+
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	_, err = tx.Exec(`INSERT INTO entities
+	  (id,name,type,tags,data,provenance,review_needed,version,updated_at,updated_by)
+	  VALUES (?,?,?,?,?,?,?,?,?,?)`,
+		e.ID, e.Name, e.Type, tags, data, e.Provenance, b2i(e.ReviewNeeded),
+		e.Version, e.UpdatedAt.Format(time.RFC3339), e.UpdatedBy)
+	if err != nil {
+		return fmt.Errorf("insert: %w", err)
+	}
+	if err := writeLog(tx, who, "create", "entities", e.ID,
+		map[string]any{"name": e.Name, "type": e.Type, "data": e.Data}, 1); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 // writeLog는 sys_edit_log에 변경 1줄을 기록한다(같은 트랜잭션 내).
