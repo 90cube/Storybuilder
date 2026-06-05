@@ -1,10 +1,11 @@
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import {
   Background, Controls, ReactFlow, ReactFlowProvider, useReactFlow,
   type Edge, type Node,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { EventNode } from "./EventNode";
+import type { Character } from "./CharacterCard";
 import s from "./domain.module.css";
 
 export type CanvasEvent = {
@@ -15,7 +16,7 @@ export type CanvasEdge = { from: string; to: string };
 type Props = {
   events: CanvasEvent[];
   edges: CanvasEdge[];
-  onDropCharacter?: (characterId: string, pos: { x: number; y: number }) => void;
+  onDropCharacter?: (character: Character, pos: { x: number; y: number }) => void;
   onNodeClick?: (id: string) => void;
   hint?: string;
 };
@@ -24,6 +25,7 @@ const nodeTypes = { event: EventNode };
 
 function Inner({ events, edges, onDropCharacter, onNodeClick, hint }: Props) {
   const rf = useReactFlow();
+  const [over, setOver] = useState(false);
   const nodes: Node[] = events.map((e, i) => ({
     id: e.id, type: "event",
     position: e.col != null
@@ -36,18 +38,22 @@ function Inner({ events, edges, onDropCharacter, onNodeClick, hint }: Props) {
   }));
 
   const onDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault(); e.dataTransfer.dropEffect = "copy";
+    e.preventDefault(); e.dataTransfer.dropEffect = "copy"; setOver(true);
   }, []);
   const onDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    const cid = e.dataTransfer.getData("application/character");
-    if (!cid) return;
-    const pos = rf.screenToFlowPosition({ x: e.clientX, y: e.clientY });
-    onDropCharacter?.(cid, pos);
+    e.preventDefault(); setOver(false);
+    const json = e.dataTransfer.getData("application/character-json");
+    if (!json) return;
+    try {
+      const c = JSON.parse(json) as Character;
+      const pos = rf.screenToFlowPosition({ x: e.clientX, y: e.clientY });
+      onDropCharacter?.(c, pos);
+    } catch { /* 잘못된 페이로드 무시 */ }
   }, [rf, onDropCharacter]);
 
   return (
-    <div className={s.canvas} onDragOver={onDragOver} onDrop={onDrop}>
+    <div className={s.canvas} data-over={over} onDragOver={onDragOver}
+      onDragLeave={() => setOver(false)} onDrop={onDrop}>
       <div className={s.dropHint}>{hint ?? "사건 노드를 클릭해 앵커(처음·끝) 지정 · 인물을 드롭"}</div>
       <ReactFlow nodes={nodes} edges={rfEdges} nodeTypes={nodeTypes}
         fitView nodesDraggable={false} proOptions={{ hideAttribution: true }}

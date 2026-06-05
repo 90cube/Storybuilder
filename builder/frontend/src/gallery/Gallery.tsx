@@ -100,7 +100,7 @@ export function Gallery() {
           </div>
           <div style={{ flex: 1, border: "1px solid var(--line)", borderRadius: "var(--r-md)", overflow: "hidden" }}>
             <CausalCanvas events={DEMO_EVENTS} edges={DEMO_EDGES}
-              onDropCharacter={(cid) => setDropped(cid)} />
+              onDropCharacter={(c) => setDropped(c.name)} />
           </div>
         </div>
       </Section>

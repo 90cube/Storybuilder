@@ -72,8 +72,8 @@ export function AppShell() {
     <div className={s.center} data-focus={focus ? "true" : "false"}>
       <div className={s.canvasRegion} onClick={() => focus && setFocus(null)}>
         <CausalCanvas events={canvasEvents} edges={edges} onNodeClick={clickNode}
-          onDropCharacter={() => { }}
-          hint={focused ? `삽입 갭 → 처음: ${titleOf(before)} · 끝: ${titleOf(after)} (노드 클릭으로 인과 이동)` : "사건 로딩 중…"} />
+          onDropCharacter={(c) => setCharacter(c)}
+          hint={focused ? `삽입 갭 → 처음: ${titleOf(before)} · 끝: ${titleOf(after)} (노드 클릭=인과 이동 · 인물 드롭=선택)` : "사건 로딩 중…"} />
       </div>
       <div className={s.storyRegion}>
         <div className={s.storyGrid} data-focus={focus ?? "none"}>

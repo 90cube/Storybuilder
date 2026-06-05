@@ -7,6 +7,7 @@ export function CharacterCard({ character }: { character: Character }) {
   return (
     <div className={s.charCard} draggable
       onDragStart={(e) => {
+        e.dataTransfer.setData("application/character-json", JSON.stringify(character));
         e.dataTransfer.setData("application/character", character.id);
         e.dataTransfer.effectAllowed = "copy";
       }}>
