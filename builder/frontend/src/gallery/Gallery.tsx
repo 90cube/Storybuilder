@@ -3,6 +3,10 @@ import {
   Button, IconButton, Input, Textarea, Select, Chip, Badge,
   Card, Panel, Spinner, Toggle, Divider,
 } from "../components/primitives";
+import {
+  CharacterCard, CausalCanvas, StoryPane, ValidationBar, ChatPanel,
+  type ChatMsg, type CanvasEvent, type CanvasEdge,
+} from "../components/domain";
 import { useAspect } from "../lib/aspect";
 import s from "./gallery.module.css";
 
@@ -15,11 +19,25 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-/** 전 컴포넌트를 한 화면에서 검수하는 갤러리. */
+const DEMO_EVENTS: CanvasEvent[] = [
+  { id: "EVT_001", title: "용의 전쟁", era: "상고시기 (마계)", anchor: true },
+  { id: "EVT_002", title: "바칼의 천계 지배", era: "상고시기 (천계)", anchor: true },
+  { id: "EVT_003", title: "검은 성전", era: "아라드력 247~347년" },
+];
+const DEMO_EDGES: CanvasEdge[] = [
+  { from: "EVT_001", to: "EVT_002" }, { from: "EVT_002", to: "EVT_003" },
+];
+const DEMO_STORY = "## 삽입 서사 — 카르닉스\n하급 용족 전사 카르닉스는 바칼의 도주를 비겁한 회피로 규정했다. 그는 마력의 잔흔을 쫓아 천계로 진입했다.\n그의 기습은 바칼에게 통제욕을 각인시켰고, 이는 마법 금지령으로 이어졌다.\n## 신규 사건 카드\n- 제목: 마지막 추격자\n- era: 상고시기 (마계→천계)\n- 역할: 후행 앵커의 인과적 근거를 제공";
+
 export function Gallery() {
   const aspect = useAspect();
   const [on, setOn] = useState(true);
   const [chip, setChip] = useState(true);
+  const [dropped, setDropped] = useState<string | null>(null);
+  const [chat, setChat] = useState<ChatMsg[]>([
+    { role: "user", text: "카르닉스를 용의 전쟁과 천계 지배 사이에 끼워줘." },
+    { role: "assistant", text: "앵커 고정하고 기승전결로 중간 서사를 생성했습니다. 검토해 주세요." },
+  ]);
 
   return (
     <div className={s.page}>
@@ -44,7 +62,7 @@ export function Gallery() {
         </div>
       </Section>
 
-      <Section title="Input / Select">
+      <Section title="Input / Select / Textarea">
         <div className={s.grid}>
           <Input placeholder="이름 (예: 카르닉스)" />
           <Select defaultValue="kishōtenketsu">
@@ -56,18 +74,15 @@ export function Gallery() {
           <Input mono placeholder="dfu_id" />
         </div>
         <div style={{ marginTop: 12 }}>
-          <div className={s.label}>SYSTEM 프롬프트 (mono)</div>
-          <Textarea mono rows={4} defaultValue={"너는 〈던전앤파이터(아라드)〉 세계관 전담 서사 작가이자 설정 감수자다.\n원칙: 세계관 정합성 최우선…"} />
+          <div className={s.label}>SYSTEM 프롬프트 (mono, 편집 가능)</div>
+          <Textarea mono rows={3} defaultValue={"너는 〈던전앤파이터(아라드)〉 세계관 전담 서사 작가이자 설정 감수자다.\n원칙: 세계관 정합성 최우선…"} />
         </div>
       </Section>
 
-      <Section title="Chip / Badge">
+      <Section title="Chip / Badge (추리 역할 · 점수)">
         <div className={s.row}>
           <Chip on={chip} onClick={() => setChip((v) => !v)}>진범 후보</Chip>
-          <Chip>단서</Chip>
-          <Chip>흑막</Chip>
-          <Chip>동기</Chip>
-          <Chip>위장 단서</Chip>
+          <Chip>단서</Chip><Chip>흑막</Chip><Chip>동기</Chip><Chip>위장 단서</Chip>
           <Divider vertical />
           <Badge tone="ember">CANON 1.5</Badge>
           <Badge tone="arcane">TEMPORAL ✓</Badge>
@@ -76,33 +91,49 @@ export function Gallery() {
         </div>
       </Section>
 
-      <Section title="Card / Panel">
-        <div className={s.grid}>
-          <Card>
-            <h3 style={{ fontSize: "var(--fs-lg)", marginBottom: 6 }}>카르닉스</h3>
-            <div className={s.sub}>하급 용족 전사 · 영원수 수호 진영의 마지막 추격자</div>
-          </Card>
-          <Panel title="tbg 검증" actions={<IconButton aria-label="새로고침">↻</IconButton>}>
+      <Section title="인물 카드 + 인과 캔버스 (드래그앤드롭 · React Flow)">
+        <div style={{ display: "flex", gap: "var(--sp-3)", alignItems: "stretch", minHeight: 300 }}>
+          <Panel title="인물 (드래그)">
             <div className={s.stack}>
-              <Badge tone="jade">순환 없음</Badge>
-              <Badge tone="jade">모순 없음</Badge>
-              <Badge tone="arcane">era 정합</Badge>
+              <CharacterCard character={{ id: "c1", name: "카르닉스", role: "하급 용족 전사" }} />
+              <CharacterCard character={{ id: "c2", name: "힐더", role: "제1사도" }} />
+              <CharacterCard character={{ id: "c3", name: "바칼", role: "폭룡왕" }} />
+              {dropped && <Badge tone="jade">드롭됨: {dropped}</Badge>}
             </div>
           </Panel>
+          <div style={{ flex: 1, border: "1px solid var(--line)", borderRadius: "var(--r-md)", overflow: "hidden" }}>
+            <CausalCanvas events={DEMO_EVENTS} edges={DEMO_EDGES}
+              onDropCharacter={(cid) => setDropped(cid)} />
+          </div>
         </div>
       </Section>
 
-      <Section title="Spinner / Toggle / Divider">
+      <Section title="스토리 페인 + tbg 검증">
+        <div style={{ border: "1px solid var(--line)", borderRadius: "var(--r-md)", overflow: "hidden" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", height: 240 }}>
+            <div style={{ borderRight: "1px solid var(--line)" }}><StoryPane markdown={"## 원본 서사\n마계 상고시기, 제9사도 바칼은 영원수 독점을 노려 전쟁을 일으켰으나 패배해 천계로 도주했다.\n그는 천계를 점령하고 마법 금지령과 하늘성 봉인으로 고립 제국을 세웠다."} /></div>
+            <StoryPane markdown={DEMO_STORY} />
+          </div>
+          <ValidationBar v={{ is_valid: true, errors: [], warnings: [] }} />
+        </div>
+      </Section>
+
+      <Section title="채팅 (HITL)">
+        <div style={{ height: 260, border: "1px solid var(--line)", borderRadius: "var(--r-md)", overflow: "hidden" }}>
+          <ChatPanel messages={chat}
+            onSend={(t) => setChat((c) => [...c, { role: "user", text: t },
+              { role: "assistant", text: "반영해 재생성했습니다." }])} />
+        </div>
+      </Section>
+
+      <Section title="Card / Spinner / Toggle">
         <div className={s.row}>
-          <Spinner />
-          <span className={s.sub}>생성 중…</span>
+          <Card><b>카르닉스</b><div className={s.sub}>하급 용족 전사</div></Card>
+          <Spinner /><span className={s.sub}>생성 중…</span>
           <Divider vertical />
           <span className={s.sub}>플롯 전체 적용</span>
-          <Toggle on={on} onChange={setOn} />
-          <span className={s.sub}>{on ? "ON" : "OFF"}</span>
+          <Toggle on={on} onChange={setOn} /><span className={s.sub}>{on ? "ON" : "OFF"}</span>
         </div>
-        <Divider />
-        <span className={s.sub}>위는 가로 구분선.</span>
       </Section>
     </div>
   );
