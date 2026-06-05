@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Badge, Button, Chip, Panel, Select, Spinner } from "../components/primitives";
-import { ResizableSplit, StatusBar, Titlebar } from "../components/shell";
+import { AspectLayout, ResizableSplit, StatusBar, Titlebar } from "../components/shell";
 import {
   CausalCanvas, ChatPanel, EntityPicker, StoryPane, ValidationBar,
   type CanvasEdge, type CanvasEvent, type Character, type ChatMsg,
@@ -128,11 +128,33 @@ export function AppShell() {
       <Titlebar sub="기능1 · 인과 갭에 캐릭터 끼워넣기"
         right={<Badge tone={online ? "jade" : "blood"}>{online ? "LLM 연결" : "백엔드 끊김"}</Badge>} />
       <div style={{ flex: 1, minHeight: 0 }}>
-        <ResizableSplit id="root-h" panes={[
-          { defaultSize: 22, minSize: 14, content: left },
-          { defaultSize: 52, content: center },
-          { defaultSize: 26, minSize: 18, content: right },
-        ]} />
+        <AspectLayout
+          landscape={
+            <ResizableSplit id="land" panes={[
+              { defaultSize: 22, minSize: 14, content: left },
+              { defaultSize: 52, content: center },
+              { defaultSize: 26, minSize: 18, content: right },
+            ]} />
+          }
+          square={
+            <ResizableSplit id="sq" panes={[
+              { defaultSize: 30, minSize: 18, content: left },
+              { defaultSize: 70, content: (
+                <ResizableSplit orientation="vertical" id="sq-v" panes={[
+                  { defaultSize: 62, content: center },
+                  { defaultSize: 38, content: right },
+                ]} />
+              ) },
+            ]} />
+          }
+          portrait={
+            <ResizableSplit orientation="vertical" id="port" panes={[
+              { defaultSize: 26, minSize: 14, content: left },
+              { defaultSize: 46, content: center },
+              { defaultSize: 28, minSize: 16, content: right },
+            ]} />
+          }
+        />
       </div>
       <StatusBar left={<>기능1 레인 삽입 · 초점: {titleOf(focusedId)}</>}
         right={<>비율: {aspect} · {result ? (result.validation.is_valid ? "검증 통과" : "검증 위반") : "대기"}</>} />
