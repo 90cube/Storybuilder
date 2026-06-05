@@ -7,7 +7,10 @@ import "@xyflow/react/dist/style.css";
 import { EventNode } from "./EventNode";
 import s from "./domain.module.css";
 
-export type CanvasEvent = { id: string; title: string; era: string; anchor?: boolean };
+export type CanvasEvent = {
+  id: string; title: string; era: string; anchor?: boolean;
+  col?: number; row?: number; // 지정 시 인과 focus 레이아웃(좌=선행/중=초점/우=후행)
+};
 export type CanvasEdge = { from: string; to: string };
 type Props = {
   events: CanvasEvent[];
@@ -23,7 +26,9 @@ function Inner({ events, edges, onDropCharacter, onNodeClick, hint }: Props) {
   const rf = useReactFlow();
   const nodes: Node[] = events.map((e, i) => ({
     id: e.id, type: "event",
-    position: { x: i * 210, y: (i % 2) * 90 },
+    position: e.col != null
+      ? { x: e.col * 250, y: (e.row ?? 0) * 120 }
+      : { x: i * 210, y: (i % 2) * 90 },
     data: { title: e.title, era: e.era, anchor: e.anchor },
   }));
   const rfEdges: Edge[] = edges.map((ed) => ({

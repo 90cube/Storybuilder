@@ -6,49 +6,48 @@ import {
   type CanvasEdge, type CanvasEvent, type Character, type ChatMsg,
 } from "../components/domain";
 import { useAspect } from "../lib/aspect";
-import { useBuilder, type GenResult } from "../lib/useBuilder";
+import { useBuilder, type EventDto, type GenResult } from "../lib/useBuilder";
 import s from "./app.module.css";
 
 export function AppShell() {
   const aspect = useAspect();
   const { events, plots, online, generate } = useBuilder();
-  const [before, setBefore] = useState<string | null>(null);
-  const [after, setAfter] = useState<string | null>(null);
+  const [focusedId, setFocusedId] = useState<string | null>(null);
   const [character, setCharacter] = useState<Character | null>(null);
   const [plot, setPlot] = useState("kishōtenketsu");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [result, setResult] = useState<GenResult | null>(null);
   const [focus, setFocus] = useState<"original" | "inserted" | null>(null);
-  const toggleFocus = (p: "original" | "inserted") => setFocus((f) => (f === p ? null : p));
   const [chat, setChat] = useState<ChatMsg[]>([
-    { role: "assistant", text: "좌측에서 인물을 고르고, 캔버스에서 처음·끝 사건을 클릭한 뒤 생성하세요." },
+    { role: "assistant", text: "인물을 고르고, 캔버스에서 사건을 눌러 인과를 따라가며 삽입 지점을 정한 뒤 생성하세요." },
   ]);
+  const toggleFocus = (p: "original" | "inserted") => setFocus((f) => (f === p ? null : p));
 
-  // 사건 로드되면 앵커 기본값 세팅(처음 실행 즉시 사용 가능). 사용자가 노드 클릭으로 변경.
-  useEffect(() => {
-    if (events.length && !before && !after) {
-      setBefore(events[0].id);
-      setAfter(events[0].causal_out.find((t) => events.some((e) => e.id === t)) ?? events[1]?.id ?? null);
-    }
-  }, [events, before, after]);
+  const byId = new Map(events.map((e) => [e.id, e]));
+  useEffect(() => { if (events.length && !focusedId) setFocusedId(events[0].id); }, [events, focusedId]);
 
-  const canvasEvents: CanvasEvent[] = events.map((e) => ({
-    id: e.id, title: e.title, era: e.era, anchor: e.id === before || e.id === after,
-  }));
-  const byId = new Set(events.map((e) => e.id));
-  const edges: CanvasEdge[] = events.flatMap((e) =>
-    e.causal_out.filter((t) => byId.has(t)).map((t) => ({ from: e.id, to: t })));
+  // 인과 focus 서브그래프: 초점 사건 + 직접 선행/후행만.
+  const focused: EventDto | null = focusedId ? byId.get(focusedId) ?? null : null;
+  const preds = focused ? events.filter((e) => e.causal_out.includes(focused.id)) : [];
+  const succs = focused
+    ? (focused.causal_out.map((id) => byId.get(id)).filter(Boolean) as EventDto[])
+    : [];
+  const before = focusedId;
+  const after = succs[0]?.id ?? null; // 갭 = 초점 → 첫 후행
 
-  const clickNode = (id: string) => {
-    if (id === before) setBefore(null);
-    else if (id === after) setAfter(null);
-    else if (!before) setBefore(id);
-    else if (!after) setAfter(id);
-    else { setBefore(id); setAfter(null); }
-  };
+  const canvasEvents: CanvasEvent[] = focused ? [
+    ...preds.map((e, i) => ({ id: e.id, title: e.title, era: e.era, col: 0, row: i })),
+    { id: focused.id, title: focused.title, era: focused.era, col: 1, row: 0, anchor: true },
+    ...succs.map((e, i) => ({ id: e.id, title: e.title, era: e.era, col: 2, row: i, anchor: e.id === after })),
+  ] : [];
+  const edges: CanvasEdge[] = focused ? [
+    ...preds.map((e) => ({ from: e.id, to: focused.id })),
+    ...succs.map((e) => ({ from: focused.id, to: e.id })),
+  ] : [];
 
-  const titleOf = (id: string | null) => events.find((e) => e.id === id)?.title ?? "—";
+  const titleOf = (id: string | null) => (id ? byId.get(id)?.title ?? "—" : "—");
+  const clickNode = (id: string) => { if (id !== focusedId) setFocusedId(id); };
   const ready = !!(before && after && character);
 
   const run = async () => {
@@ -67,15 +66,14 @@ export function AppShell() {
     finally { setBusy(false); }
   };
 
-  const left = (
-    <Panel title="인물 검색" className={s.fill}><EntityPicker onPick={setCharacter} /></Panel>
-  );
+  const left = <Panel title="인물 검색" className={s.fill}><EntityPicker onPick={setCharacter} /></Panel>;
+
   const center = (
     <div className={s.center} data-focus={focus ? "true" : "false"}>
       <div className={s.canvasRegion} onClick={() => focus && setFocus(null)}>
         <CausalCanvas events={canvasEvents} edges={edges} onNodeClick={clickNode}
           onDropCharacter={() => { }}
-          hint={before || after ? `처음: ${titleOf(before)} · 끝: ${titleOf(after)}` : "사건 노드를 클릭해 처음·끝 앵커 지정"} />
+          hint={focused ? `삽입 갭 → 처음: ${titleOf(before)} · 끝: ${titleOf(after)} (노드 클릭으로 인과 이동)` : "사건 로딩 중…"} />
       </div>
       <div className={s.storyRegion}>
         <div className={s.storyGrid} data-focus={focus ?? "none"}>
@@ -90,6 +88,7 @@ export function AppShell() {
       </div>
     </div>
   );
+
   const right = (
     <div className={s.right}>
       <div className={s.controls}>
@@ -100,7 +99,7 @@ export function AppShell() {
           </div>
         </div>
         <div className={s.field}>
-          <span className={s.fieldLabel}>앵커 (처음 → 끝)</span>
+          <span className={s.fieldLabel}>삽입 갭 (처음 → 끝)</span>
           <div className={s.selRow}>
             <Chip on={!!before}>{titleOf(before)}</Chip>
             <span className={s.muted}>→</span>
@@ -118,7 +117,9 @@ export function AppShell() {
         </Button>
         {err && <span className={s.err}>실패: {err}</span>}
       </div>
-      <div className={s.chatFill}><ChatPanel messages={chat} onSend={(t) => setChat((c) => [...c, { role: "user", text: t }])} /></div>
+      <div className={s.chatFill}>
+        <ChatPanel messages={chat} onSend={(t) => setChat((c) => [...c, { role: "user", text: t }])} />
+      </div>
     </div>
   );
 
@@ -133,7 +134,7 @@ export function AppShell() {
           { defaultSize: 26, minSize: 18, content: right },
         ]} />
       </div>
-      <StatusBar left={<>기능1 레인 삽입</>}
+      <StatusBar left={<>기능1 레인 삽입 · 초점: {titleOf(focusedId)}</>}
         right={<>비율: {aspect} · {result ? (result.validation.is_valid ? "검증 통과" : "검증 위반") : "대기"}</>} />
     </div>
   );
