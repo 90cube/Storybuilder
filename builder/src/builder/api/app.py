@@ -24,7 +24,7 @@ class CharIn(BaseModel):
 class GenIn(BaseModel):
     before_id: str
     after_id: str
-    new_character: CharIn
+    new_characters: list[CharIn]
     plot_key: str = "five"
     context_ids: list[str] = []
     system: str | None = None
@@ -63,7 +63,7 @@ def create_app() -> FastAPI:
         try:
             return service.generate_pair(
                 body.before_id, body.after_id,
-                NewCharacter(**body.new_character.model_dump()),
+                [NewCharacter(**c.model_dump()) for c in body.new_characters],
                 body.plot_key, context_ids=body.context_ids, system=body.system)
         except Exception as e:  # LLM 미기동·corpus 오류 등을 그대로 전달
             raise HTTPException(status_code=500, detail=f"{type(e).__name__}: {e}")

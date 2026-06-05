@@ -13,7 +13,11 @@ export function AppShell() {
   const aspect = useAspect();
   const { events, plots, systemDefault, online, generate } = useBuilder();
   const [focusedId, setFocusedId] = useState<string | null>(null);
-  const [character, setCharacter] = useState<Character | null>(null);
+  const [characters, setCharacters] = useState<Character[]>([]);
+  const addCharacter = (c: Character) =>
+    setCharacters((prev) => (prev.some((p) => p.id === c.id) ? prev : [...prev, c]));
+  const removeCharacter = (id: string) =>
+    setCharacters((prev) => prev.filter((p) => p.id !== id));
   const [plot, setPlot] = useState("kishōtenketsu");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -64,16 +68,17 @@ export function AppShell() {
     if (overview) { setFocusedId(id); setOverview(false); return; } // 전체에서 사건 클릭=focus 진입
     if (id !== focusedId) setFocusedId(id);
   };
-  const ready = !!(before && after && character);
+  const ready = !!(before && after && characters.length);
+  const charNames = characters.map((c) => c.name).join(" · ");
 
   const run = async () => {
     if (!ready) return;
     setBusy(true); setErr(""); setResult(null);
-    setChat((c) => [...c, { role: "user", text: `${character!.name}를 「${titleOf(before)}」와 「${titleOf(after)}」 사이에 끼워줘 (${plot})` }]);
+    setChat((c) => [...c, { role: "user", text: `${charNames}를 「${titleOf(before)}」와 「${titleOf(after)}」 사이에 끼워줘 (${plot})` }]);
     try {
       const r = await generate({
         before_id: before!, after_id: after!,
-        new_character: { name: character!.name, concept: character!.role ?? "", motive: "" },
+        new_characters: characters.map((c) => ({ name: c.name, concept: c.role ?? "", motive: "" })),
         plot_key: plot, system: system || undefined,
       });
       setResult(r);
@@ -82,7 +87,7 @@ export function AppShell() {
     finally { setBusy(false); }
   };
 
-  const left = <Panel title="인물 검색" className={s.fill}><EntityPicker onPick={setCharacter} /></Panel>;
+  const left = <Panel title="인물 검색" className={s.fill}><EntityPicker onPick={addCharacter} /></Panel>;
 
   const center = (
     <div className={s.center} data-focus={focus ? "true" : "false"}>
@@ -92,7 +97,7 @@ export function AppShell() {
           {overview ? "◳ focus 보기" : `▦ 전체 보기 (${events.length})`}
         </button>
         <CausalCanvas events={canvasEvents} edges={edges} onNodeClick={clickNode}
-          onDropCharacter={(c) => setCharacter(c)}
+          onDropCharacter={addCharacter}
           hint={overview
             ? "전체 사건 — 클릭하면 그 사건으로 focus 진입"
             : (focused ? `삽입 갭 → 처음: ${titleOf(before)} · 끝: ${titleOf(after)} (노드 클릭=인과 이동 · 인물 드롭=선택)` : "사건 로딩 중…")} />
@@ -115,9 +120,13 @@ export function AppShell() {
     <div className={s.right}>
       <div className={s.controls}>
         <div className={s.field}>
-          <span className={s.fieldLabel}>선택된 인물</span>
+          <span className={s.fieldLabel}>선택된 인물 ({characters.length})</span>
           <div className={s.selRow}>
-            {character ? <Chip on>{character.name}</Chip> : <span className={s.muted}>좌측 리스트에서 클릭</span>}
+            {characters.length
+              ? characters.map((c) => (
+                  <Chip key={c.id} on onClick={() => removeCharacter(c.id)}>{c.name} ✕</Chip>
+                ))
+              : <span className={s.muted}>좌측에서 클릭/드래그 (여러 명 가능)</span>}
           </div>
         </div>
         <div className={s.field}>

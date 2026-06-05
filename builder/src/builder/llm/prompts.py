@@ -40,9 +40,16 @@ def original_prompt(before: dict, after: dict) -> str:
 
 def inserted_prompt(req: InsertionRequest) -> str:
     """(B) 삽입: 앵커 고정 + 신캐를 인과 사이에 끼운 새 중간 서사."""
-    nc = req.new_character
+    ncs = req.new_characters
+    names = " · ".join(c.name for c in ncs) or "신규 인물"
+    char_block = "\n".join(f"- {c.name}: {c.concept} (동기: {c.motive})" for c in ncs) or "- (미지정)"
+    multi = len(ncs) > 1
+    converge = (f"- {names} 의 개입이 서로 얽히되, 후행 앵커의 결말로 함께 수렴하게 하라."
+                if multi else
+                f"- {names} 의 개입이 후행 앵커의 결말을 거스르지 않고 오히려 그리로 수렴하게 하라.")
+    roles = "\n".join(f"- {c.name}의 역할:" for c in ncs)
     ctx = "\n".join(_ev_block(e) for e in req.context_events) or "(없음)"
-    return f"""아래 두 '앵커 사건' 사이에, 신규 캐릭터를 자연스럽게 끼워넣은 **새 중간 서사**를 써라.
+    return f"""아래 두 '앵커 사건' 사이에, 신규 캐릭터{'들' if multi else ''}을 자연스럽게 끼워넣은 **새 중간 서사**를 써라.
 
 [앵커=처음 (불변)]
 {_ev_block(req.anchor_before)}
@@ -50,10 +57,8 @@ def inserted_prompt(req: InsertionRequest) -> str:
 [앵커=끝 (불변)]
 {_ev_block(req.anchor_after)}
 
-[끼워넣을 신규 캐릭터]
-- 이름: {nc.name}
-- 콘셉트: {nc.concept}
-- 동기: {nc.motive}
+[끼워넣을 신규 캐릭터{' (여러 명 — 서로 관계 맺게)' if multi else ''}]
+{char_block}
 
 [참고 맥락 (다른 이야기·세계관)]
 {ctx}
@@ -61,16 +66,16 @@ def inserted_prompt(req: InsertionRequest) -> str:
 
 [지켜야 할 것]
 - 처음(선행 앵커)과 끝(후행 앵커)의 상태는 절대 바꾸지 마라. 그 사이만 창작한다.
-- {nc.name}의 개입이 후행 앵커의 결말을 거스르지 않고 오히려 그리로 수렴하게 하라.
+{converge}
 - 기존 인물과 세계관 제약을 존중하라.
 {guidance(req.plot_key)}
 
 형식:
-## 삽입 서사 — {nc.name}
+## 삽입 서사 — {names}
 (4~6문단. 위 플롯 구조를 따르되 단계명을 노출하지 말 것.)
 
 ## 신규 사건 카드
 - 제목:
 - era:
 - 한줄요약:
-- {nc.name}의 역할:"""
+{roles}"""

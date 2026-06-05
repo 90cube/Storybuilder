@@ -6,12 +6,12 @@ from builder.domain.validate import validate_insertion
 from builder.llm import client, prompts
 
 
-def generate_pair(before_id: str, after_id: str, new_character: NewCharacter,
+def generate_pair(before_id: str, after_id: str, new_characters: list[NewCharacter],
                   plot_key: str, context_ids: list[str] | None = None,
                   system: str | None = None, save: bool = True) -> dict:
-    """선행→후행 앵커 사이에 신캐를 끼운 (원본·삽입) 이야기 2개를 생성해 드래프트로 반환."""
+    """선행→후행 앵커 사이에 신캐(1명 이상)를 끼운 (원본·삽입) 이야기 2개를 생성해 드래프트로 반환."""
     by_id, _ = load_events()
-    req = build_request(by_id, before_id, after_id, new_character,
+    req = build_request(by_id, before_id, after_id, new_characters,
                         plot_key, extra_context_ids=context_ids)
     sys_prompt = (system or prompts.SYSTEM).strip()
 
@@ -25,7 +25,7 @@ def generate_pair(before_id: str, after_id: str, new_character: NewCharacter,
 
     draft = {
         "anchors": {"before": before_id, "after": after_id},
-        "new_character": new_character.__dict__,
+        "new_characters": [c.__dict__ for c in new_characters],
         "plot": plot_key,
         "original_story": original,
         "inserted_story": inserted,

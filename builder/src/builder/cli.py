@@ -23,7 +23,7 @@ def _hr(title: str) -> str:
 
 def main() -> None:
     print(_hr(f"생성 중... [{NEW_CHARACTER.name} / {PLOTS[PLOT_KEY][0]}]"))
-    draft = service.generate_pair(BEFORE_ID, AFTER_ID, NEW_CHARACTER,
+    draft = service.generate_pair(BEFORE_ID, AFTER_ID, [NEW_CHARACTER],
                                   PLOT_KEY, context_ids=CONTEXT_IDS)
     print(_hr("(A) 원본 이야기"))
     print(draft["original_story"])

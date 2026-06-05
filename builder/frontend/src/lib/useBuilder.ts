@@ -12,7 +12,7 @@ export type GenResult = {
 };
 export type GenBody = {
   before_id: string; after_id: string;
-  new_character: { name: string; concept: string; motive: string };
+  new_characters: { name: string; concept: string; motive: string }[];
   plot_key: string; system?: string;
 };
 

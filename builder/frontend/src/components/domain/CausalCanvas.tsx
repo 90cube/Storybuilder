@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   Background, Controls, ReactFlow, ReactFlowProvider, useReactFlow,
   type Edge, type Node,
@@ -26,19 +26,22 @@ const nodeTypes = { event: EventNode };
 function Inner({ events, edges, onDropCharacter, onNodeClick, hint }: Props) {
   const rf = useReactFlow();
   const [over, setOver] = useState(false);
-  const nodes: Node[] = events.map((e, i) => ({
+  // useMemo: 드래그오버 등으로 인한 재렌더에도 노드/엣지 식별자를 안정시켜
+  // React Flow가 깜빡(blank)이지 않게 한다.
+  const nodes = useMemo<Node[]>(() => events.map((e, i) => ({
     id: e.id, type: "event",
     position: e.col != null
       ? { x: e.col * 250, y: (e.row ?? 0) * 120 }
       : { x: i * 210, y: (i % 2) * 90 },
     data: { title: e.title, era: e.era, anchor: e.anchor },
-  }));
-  const rfEdges: Edge[] = edges.map((ed) => ({
+  })), [events]);
+  const rfEdges = useMemo<Edge[]>(() => edges.map((ed) => ({
     id: `${ed.from}-${ed.to}`, source: ed.from, target: ed.to, animated: true,
-  }));
+  })), [edges]);
 
   const onDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault(); e.dataTransfer.dropEffect = "copy"; setOver(true);
+    e.preventDefault(); e.dataTransfer.dropEffect = "copy";
+    setOver((v) => v || true); // 이미 true면 재렌더 없음
   }, []);
   const onDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault(); setOver(false);

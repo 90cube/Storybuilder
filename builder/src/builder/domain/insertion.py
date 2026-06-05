@@ -16,7 +16,7 @@ class InsertionRequest:
     """한 인과 갭에 대한 삽입 요청. anchor_before/after 사건은 절대 불변."""
     anchor_before: dict          # 선행 사건 (고정)
     anchor_after: dict           # 후행 사건 (고정)
-    new_character: NewCharacter
+    new_characters: list[NewCharacter]  # 끼워넣을 신규 인물 1명 이상
     plot_key: str                # plot 템플릿 키
     context_events: list[dict] = field(default_factory=list)  # 이웃·타라인 맥락
     involved_characters: list[str] = field(default_factory=list)
@@ -30,7 +30,7 @@ def build_request(
     by_id: dict[str, dict],
     before_id: str,
     after_id: str,
-    new_character: NewCharacter,
+    new_characters: list[NewCharacter],
     plot_key: str,
     extra_context_ids: list[str] | None = None,
 ) -> InsertionRequest:
@@ -41,7 +41,7 @@ def build_request(
     return InsertionRequest(
         anchor_before=before,
         anchor_after=after,
-        new_character=new_character,
+        new_characters=new_characters,
         plot_key=plot_key,
         context_events=ctx,
         involved_characters=involved,
