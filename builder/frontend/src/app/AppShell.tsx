@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Badge, Button, Chip, Panel, Select, Spinner } from "../components/primitives";
+import { Badge, Button, Chip, Panel, Select, Spinner, Textarea } from "../components/primitives";
 import { AspectLayout, ResizableSplit, StatusBar, Titlebar } from "../components/shell";
 import {
   CausalCanvas, ChatPanel, EntityPicker, StoryPane, ValidationBar,
@@ -11,7 +11,7 @@ import s from "./app.module.css";
 
 export function AppShell() {
   const aspect = useAspect();
-  const { events, plots, online, generate } = useBuilder();
+  const { events, plots, systemDefault, online, generate } = useBuilder();
   const [focusedId, setFocusedId] = useState<string | null>(null);
   const [character, setCharacter] = useState<Character | null>(null);
   const [plot, setPlot] = useState("kishōtenketsu");
@@ -19,6 +19,9 @@ export function AppShell() {
   const [err, setErr] = useState("");
   const [result, setResult] = useState<GenResult | null>(null);
   const [focus, setFocus] = useState<"original" | "inserted" | null>(null);
+  const [system, setSystem] = useState("");
+  const [showPrompt, setShowPrompt] = useState(false);
+  useEffect(() => { if (systemDefault && !system) setSystem(systemDefault); }, [systemDefault, system]);
   const [chat, setChat] = useState<ChatMsg[]>([
     { role: "assistant", text: "인물을 고르고, 캔버스에서 사건을 눌러 인과를 따라가며 삽입 지점을 정한 뒤 생성하세요." },
   ]);
@@ -58,7 +61,7 @@ export function AppShell() {
       const r = await generate({
         before_id: before!, after_id: after!,
         new_character: { name: character!.name, concept: character!.role ?? "", motive: "" },
-        plot_key: plot,
+        plot_key: plot, system: system || undefined,
       });
       setResult(r);
       setChat((c) => [...c, { role: "assistant", text: r.validation.is_valid ? "생성 완료. tbg 검증 통과 — 검토해 주세요." : "생성했으나 tbg 위반 — 확인 필요." }]);
@@ -111,6 +114,19 @@ export function AppShell() {
           <Select value={plot} onChange={(e) => setPlot(e.target.value)}>
             {plots.map((p) => <option key={p.key} value={p.key}>{p.name}</option>)}
           </Select>
+        </div>
+        <div className={s.field}>
+          <button className={s.promptToggle} onClick={() => setShowPrompt((v) => !v)}>
+            <span className={s.fieldLabel}>마스터 프롬프트 편집</span>
+            <span className={s.muted}>{showPrompt ? "▾" : "▸"}{system !== systemDefault ? " ·수정됨" : ""}</span>
+          </button>
+          {showPrompt && (
+            <>
+              <Textarea mono rows={8} value={system} onChange={(e) => setSystem(e.target.value)} />
+              <button className={s.linkBtn} disabled={system === systemDefault}
+                onClick={() => setSystem(systemDefault)}>기본값 복원</button>
+            </>
+          )}
         </div>
         <Button variant="primary" disabled={!ready || busy} onClick={run}>
           {busy ? <><Spinner /> 생성 중…</> : "이야기 2개 생성"}

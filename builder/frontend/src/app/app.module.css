@@ -36,3 +36,6 @@
 .muted { color: var(--text-mut); font-size: var(--fs-xs); }
 .chatFill { flex: 1; min-height: 0; }
 .err { color: var(--blood); font-size: var(--fs-xs); }
+.promptToggle { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); width: 100%; background: none; border: none; padding: 0; cursor: pointer; }
+.linkBtn { align-self: flex-start; background: none; border: none; color: var(--ember); font-size: var(--fs-xs); cursor: pointer; padding: 2px 0; }
+.linkBtn:disabled { color: var(--text-mut); cursor: default; }

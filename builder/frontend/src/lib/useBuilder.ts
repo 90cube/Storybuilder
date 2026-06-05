@@ -13,17 +13,19 @@ export type GenResult = {
 export type GenBody = {
   before_id: string; after_id: string;
   new_character: { name: string; concept: string; motive: string };
-  plot_key: string;
+  plot_key: string; system?: string;
 };
 
 export function useBuilder() {
   const [events, setEvents] = useState<EventDto[]>([]);
   const [plots, setPlots] = useState<Plot[]>([]);
+  const [systemDefault, setSystemDefault] = useState("");
   const [online, setOnline] = useState(false);
 
   useEffect(() => {
     fetch("/api/events").then((r) => r.json()).then((d) => { setEvents(d); setOnline(true); }).catch(() => setOnline(false));
     fetch("/api/plots").then((r) => r.json()).then(setPlots).catch(() => {});
+    fetch("/api/prompt").then((r) => r.json()).then((d) => setSystemDefault(d.system ?? "")).catch(() => {});
   }, []);
 
   const generate = useCallback(async (body: GenBody): Promise<GenResult> => {
@@ -35,5 +37,5 @@ export function useBuilder() {
     return r.json();
   }, []);
 
-  return { events, plots, online, generate };
+  return { events, plots, systemDefault, online, generate };
 }
