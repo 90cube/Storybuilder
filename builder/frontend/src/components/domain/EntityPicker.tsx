@@ -20,7 +20,7 @@ export function EntityPicker({ onPick }: { onPick?: (c: Character) => void }) {
     window.clearTimeout(t.current);
     t.current = window.setTimeout(async () => {
       try {
-        const r = await fetch(`/api/entities?q=${encodeURIComponent(q)}&limit=40`);
+        const r = await fetch(`/api/entities?q=${encodeURIComponent(q)}&limit=3000`);
         setItems(await r.json());
       } catch { setItems([]); }
       finally { setLoading(false); }
