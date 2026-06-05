@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Badge, Button, Chip, Panel, Select, Spinner } from "../components/primitives";
 import { ResizableSplit, StatusBar, Titlebar } from "../components/shell";
 import {
@@ -22,6 +22,14 @@ export function AppShell() {
   const [chat, setChat] = useState<ChatMsg[]>([
     { role: "assistant", text: "좌측에서 인물을 고르고, 캔버스에서 처음·끝 사건을 클릭한 뒤 생성하세요." },
   ]);
+
+  // 사건 로드되면 앵커 기본값 세팅(처음 실행 즉시 사용 가능). 사용자가 노드 클릭으로 변경.
+  useEffect(() => {
+    if (events.length && !before && !after) {
+      setBefore(events[0].id);
+      setAfter(events[0].causal_out.find((t) => events.some((e) => e.id === t)) ?? events[1]?.id ?? null);
+    }
+  }, [events, before, after]);
 
   const canvasEvents: CanvasEvent[] = events.map((e) => ({
     id: e.id, title: e.title, era: e.era, anchor: e.id === before || e.id === after,
