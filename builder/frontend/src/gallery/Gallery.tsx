@@ -4,7 +4,7 @@ import {
   Card, Panel, Spinner, Toggle, Divider,
 } from "../components/primitives";
 import {
-  CharacterCard, CausalCanvas, StoryPane, ValidationBar, ChatPanel,
+  EntityPicker, CausalCanvas, StoryPane, ValidationBar, ChatPanel,
   type ChatMsg, type CanvasEvent, type CanvasEdge,
 } from "../components/domain";
 import { useAspect } from "../lib/aspect";
@@ -91,16 +91,13 @@ export function Gallery() {
         </div>
       </Section>
 
-      <Section title="인물 카드 + 인과 캔버스 (드래그앤드롭 · React Flow)">
-        <div style={{ display: "flex", gap: "var(--sp-3)", alignItems: "stretch", minHeight: 300 }}>
-          <Panel title="인물 (드래그)">
-            <div className={s.stack}>
-              <CharacterCard character={{ id: "c1", name: "카르닉스", role: "하급 용족 전사" }} />
-              <CharacterCard character={{ id: "c2", name: "힐더", role: "제1사도" }} />
-              <CharacterCard character={{ id: "c3", name: "바칼", role: "폭룡왕" }} />
-              {dropped && <Badge tone="jade">드롭됨: {dropped}</Badge>}
-            </div>
-          </Panel>
+      <Section title="인물 피커(실데이터 검색) + 인과 캔버스 (드래그앤드롭)">
+        <div style={{ display: "flex", gap: "var(--sp-3)", alignItems: "stretch", height: 340 }}>
+          <div style={{ width: 280, flex: "none" }}>
+            <Panel title={<>인물 검색 {dropped && <Badge tone="jade">드롭: {dropped}</Badge>}</>}>
+              <EntityPicker />
+            </Panel>
+          </div>
           <div style={{ flex: 1, border: "1px solid var(--line)", borderRadius: "var(--r-md)", overflow: "hidden" }}>
             <CausalCanvas events={DEMO_EVENTS} edges={DEMO_EDGES}
               onDropCharacter={(cid) => setDropped(cid)} />

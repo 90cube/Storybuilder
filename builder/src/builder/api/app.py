@@ -1,12 +1,14 @@
 """FastAPI 앱 조립: 사건/플롯/프롬프트 조회 + 생성 + 정적 프론트 서빙."""
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from builder.const import WEB_DIR
 from builder.io.corpus import load_events
+from builder.io.entities import search_entities
 from builder.plot.templates import PLOTS
 from builder.domain.insertion import NewCharacter
 from builder.llm import prompts
@@ -30,6 +32,13 @@ class GenIn(BaseModel):
 
 def create_app() -> FastAPI:
     app = FastAPI(title="DNF StoryBuilder — 기능1")
+    # 개발(Vite 5173) + 향후 Electron 대비.
+    app.add_middleware(CORSMiddleware, allow_origins=["*"],
+                       allow_methods=["*"], allow_headers=["*"])
+
+    @app.get("/api/entities")
+    def entities(q: str = "", category: str = "person", limit: int = 50):
+        return search_entities(q, category, limit)
 
     @app.get("/api/events")
     def events():

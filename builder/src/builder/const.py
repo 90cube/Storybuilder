@@ -6,6 +6,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[3]
 CORPUS_DIR = REPO_ROOT / "corpus"
 EVENT_CHAIN = CORPUS_DIR / "event_chain.json"
+CHARACTER_MASTER = CORPUS_DIR / "character_master.json"
 DRAFTS_DIR = REPO_ROOT / "builder" / "drafts"
 WEB_DIR = Path(__file__).resolve().parent / "web"  # 정적 프론트엔드
 
