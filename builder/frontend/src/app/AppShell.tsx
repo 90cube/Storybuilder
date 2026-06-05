@@ -21,6 +21,7 @@ export function AppShell() {
   const [focus, setFocus] = useState<"original" | "inserted" | null>(null);
   const [system, setSystem] = useState("");
   const [showPrompt, setShowPrompt] = useState(false);
+  const [overview, setOverview] = useState(false); // 전체 보기 ↔ focus
   useEffect(() => { if (systemDefault && !system) setSystem(systemDefault); }, [systemDefault, system]);
   const [chat, setChat] = useState<ChatMsg[]>([
     { role: "assistant", text: "인물을 고르고, 캔버스에서 사건을 눌러 인과를 따라가며 삽입 지점을 정한 뒤 생성하세요." },
@@ -39,18 +40,30 @@ export function AppShell() {
   const before = focusedId;
   const after = succs[0]?.id ?? null; // 갭 = 초점 → 첫 후행
 
-  const canvasEvents: CanvasEvent[] = focused ? [
-    ...preds.map((e, i) => ({ id: e.id, title: e.title, era: e.era, col: 0, row: i })),
-    { id: focused.id, title: focused.title, era: focused.era, col: 1, row: 0, anchor: true },
-    ...succs.map((e, i) => ({ id: e.id, title: e.title, era: e.era, col: 2, row: i, anchor: e.id === after })),
-  ] : [];
-  const edges: CanvasEdge[] = focused ? [
-    ...preds.map((e) => ({ from: e.id, to: focused.id })),
-    ...succs.map((e) => ({ from: focused.id, to: e.id })),
-  ] : [];
+  // 전체 보기: 21개 미니맵(시대순 격자) / focus: 초점+직접 이웃
+  const COLS = 6;
+  const canvasEvents: CanvasEvent[] = overview
+    ? events.map((e, i) => ({
+        id: e.id, title: e.title, era: e.era,
+        col: i % COLS, row: Math.floor(i / COLS), anchor: e.id === focusedId,
+      }))
+    : focused ? [
+        ...preds.map((e, i) => ({ id: e.id, title: e.title, era: e.era, col: 0, row: i })),
+        { id: focused.id, title: focused.title, era: focused.era, col: 1, row: 0, anchor: true },
+        ...succs.map((e, i) => ({ id: e.id, title: e.title, era: e.era, col: 2, row: i, anchor: e.id === after })),
+      ] : [];
+  const edges: CanvasEdge[] = overview
+    ? events.flatMap((e) => e.causal_out.filter((t) => byId.has(t)).map((t) => ({ from: e.id, to: t })))
+    : focused ? [
+        ...preds.map((e) => ({ from: e.id, to: focused.id })),
+        ...succs.map((e) => ({ from: focused.id, to: e.id })),
+      ] : [];
 
   const titleOf = (id: string | null) => (id ? byId.get(id)?.title ?? "—" : "—");
-  const clickNode = (id: string) => { if (id !== focusedId) setFocusedId(id); };
+  const clickNode = (id: string) => {
+    if (overview) { setFocusedId(id); setOverview(false); return; } // 전체에서 사건 클릭=focus 진입
+    if (id !== focusedId) setFocusedId(id);
+  };
   const ready = !!(before && after && character);
 
   const run = async () => {
@@ -74,9 +87,15 @@ export function AppShell() {
   const center = (
     <div className={s.center} data-focus={focus ? "true" : "false"}>
       <div className={s.canvasRegion} onClick={() => focus && setFocus(null)}>
+        <button className={s.viewToggle} title="전체 ↔ focus"
+          onClick={(e) => { e.stopPropagation(); setOverview((o) => !o); }}>
+          {overview ? "◳ focus 보기" : `▦ 전체 보기 (${events.length})`}
+        </button>
         <CausalCanvas events={canvasEvents} edges={edges} onNodeClick={clickNode}
           onDropCharacter={(c) => setCharacter(c)}
-          hint={focused ? `삽입 갭 → 처음: ${titleOf(before)} · 끝: ${titleOf(after)} (노드 클릭=인과 이동 · 인물 드롭=선택)` : "사건 로딩 중…"} />
+          hint={overview
+            ? "전체 사건 — 클릭하면 그 사건으로 focus 진입"
+            : (focused ? `삽입 갭 → 처음: ${titleOf(before)} · 끝: ${titleOf(after)} (노드 클릭=인과 이동 · 인물 드롭=선택)` : "사건 로딩 중…")} />
       </div>
       <div className={s.storyRegion}>
         <div className={s.storyGrid} data-focus={focus ?? "none"}>
