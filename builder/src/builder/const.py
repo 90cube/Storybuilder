@@ -7,6 +7,11 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 CORPUS_DIR = REPO_ROOT / "corpus"
 EVENT_CHAIN = CORPUS_DIR / "event_chain.json"
 DRAFTS_DIR = REPO_ROOT / "builder" / "drafts"
+WEB_DIR = Path(__file__).resolve().parent / "web"  # 정적 프론트엔드
+
+# FastAPI 서버 (프론트 + API). LLM(8080)과 다른 포트.
+APP_HOST = "127.0.0.1"
+APP_PORT = 8000
 
 # event_chain.json sources 키 → belief 갱신 가중치.
 # dfu = ground truth(정사), rrw/namu = 보완재.
