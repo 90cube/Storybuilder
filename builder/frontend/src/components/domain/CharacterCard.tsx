@@ -2,10 +2,11 @@ import s from "./domain.module.css";
 
 export type Character = { id: string; name: string; role?: string };
 
-/** 드래그 가능한 인물 카드 (인물뷰 → 인과 캔버스로 끌어다 놓음). */
-export function CharacterCard({ character }: { character: Character }) {
+/** 드래그 가능한 인물 카드. highlight=관련 인물 강조(노란색). */
+export function CharacterCard({ character, highlight }:
+  { character: Character; highlight?: boolean }) {
   return (
-    <div className={s.charCard} draggable
+    <div className={`${s.charCard} ${highlight ? s.charCardHi : ""}`} draggable
       onDragStart={(e) => {
         e.dataTransfer.setData("application/character-json", JSON.stringify(character));
         e.dataTransfer.setData("application/character", character.id);

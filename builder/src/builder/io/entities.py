@@ -19,6 +19,7 @@ def _all() -> list[dict]:
             "name": e.get("name", ""),
             "category": e.get("category", ""),
             "summary": (e.get("description", "") or "")[:140],
+            "relations": [r for r in (e.get("relations") or []) if isinstance(r, str)],
         })
     return out
 
