@@ -1,0 +1,17 @@
+/* 앱 셸 조립 스타일. 각 영역은 패널로 경계 → 내부 스크롤(겹침 없음). */
+.fill { height: 100%; min-height: 0; }
+
+.center { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.storyWrap { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.storyGrid { flex: 1; display: grid; grid-template-columns: 1fr 1fr; min-height: 0; }
+.storyGrid > :first-child { border-right: 1px solid var(--line); }
+
+/* 우측 검수 패널 */
+.right { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.controls { display: flex; flex-direction: column; gap: var(--sp-3); padding: var(--sp-3); border-bottom: 1px solid var(--line); }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.fieldLabel { font: 600 var(--fs-xs)/1 var(--font-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--text-mut); }
+.selRow { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; min-height: 28px; }
+.muted { color: var(--text-mut); font-size: var(--fs-xs); }
+.chatFill { flex: 1; min-height: 0; }
+.err { color: var(--blood); font-size: var(--fs-xs); }

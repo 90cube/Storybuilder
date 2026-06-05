@@ -1,6 +1,6 @@
-import { Gallery } from "./gallery/Gallery";
+import { AppShell } from "./app/AppShell";
 
-// 현재 단계: 컴포넌트 라이브러리 검수용 갤러리. 조립 단계에서 셸로 교체.
+// 조립된 앱 셸. (컴포넌트 갤러리는 src/gallery/Gallery.tsx 에 보존)
 export default function App() {
-  return <Gallery />;
+  return <AppShell />;
 }

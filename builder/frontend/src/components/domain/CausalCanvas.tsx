@@ -13,11 +13,13 @@ type Props = {
   events: CanvasEvent[];
   edges: CanvasEdge[];
   onDropCharacter?: (characterId: string, pos: { x: number; y: number }) => void;
+  onNodeClick?: (id: string) => void;
+  hint?: string;
 };
 
 const nodeTypes = { event: EventNode };
 
-function Inner({ events, edges, onDropCharacter }: Props) {
+function Inner({ events, edges, onDropCharacter, onNodeClick, hint }: Props) {
   const rf = useReactFlow();
   const nodes: Node[] = events.map((e, i) => ({
     id: e.id, type: "event",
@@ -41,9 +43,10 @@ function Inner({ events, edges, onDropCharacter }: Props) {
 
   return (
     <div className={s.canvas} onDragOver={onDragOver} onDrop={onDrop}>
-      <div className={s.dropHint}>인물을 인과 지점에 드롭 → 삽입 갭 지정</div>
+      <div className={s.dropHint}>{hint ?? "사건 노드를 클릭해 앵커(처음·끝) 지정 · 인물을 드롭"}</div>
       <ReactFlow nodes={nodes} edges={rfEdges} nodeTypes={nodeTypes}
-        fitView nodesDraggable={false} proOptions={{ hideAttribution: true }}>
+        fitView nodesDraggable={false} proOptions={{ hideAttribution: true }}
+        onNodeClick={(_, n) => onNodeClick?.(n.id)}>
         <Background color="#2c3142" gap={20} />
         <Controls showInteractive={false} />
       </ReactFlow>
