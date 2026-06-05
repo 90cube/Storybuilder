@@ -19,6 +19,8 @@ export function AppShell() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [result, setResult] = useState<GenResult | null>(null);
+  const [focus, setFocus] = useState<"original" | "inserted" | null>(null);
+  const toggleFocus = (p: "original" | "inserted") => setFocus((f) => (f === p ? null : p));
   const [chat, setChat] = useState<ChatMsg[]>([
     { role: "assistant", text: "좌측에서 인물을 고르고, 캔버스에서 처음·끝 사건을 클릭한 뒤 생성하세요." },
   ]);
@@ -69,23 +71,23 @@ export function AppShell() {
     <Panel title="인물 검색" className={s.fill}><EntityPicker onPick={setCharacter} /></Panel>
   );
   const center = (
-    <div className={s.center}>
-      <ResizableSplit orientation="vertical" id="center-v" panes={[
-        { defaultSize: 56, content: (
-          <CausalCanvas events={canvasEvents} edges={edges} onNodeClick={clickNode}
-            onDropCharacter={() => { }}
-            hint={before || after ? `처음: ${titleOf(before)} · 끝: ${titleOf(after)}` : "사건 노드를 클릭해 처음·끝 앵커 지정"} />
-        ) },
-        { defaultSize: 44, content: (
-          <div className={s.storyWrap}>
-            <div className={s.storyGrid}>
-              <StoryPane markdown={result?.original_story} />
-              <StoryPane markdown={result?.inserted_story} />
-            </div>
-            <ValidationBar v={result?.validation} />
+    <div className={s.center} data-focus={focus ? "true" : "false"}>
+      <div className={s.canvasRegion} onClick={() => focus && setFocus(null)}>
+        <CausalCanvas events={canvasEvents} edges={edges} onNodeClick={clickNode}
+          onDropCharacter={() => { }}
+          hint={before || after ? `처음: ${titleOf(before)} · 끝: ${titleOf(after)}` : "사건 노드를 클릭해 처음·끝 앵커 지정"} />
+      </div>
+      <div className={s.storyRegion}>
+        <div className={s.storyGrid} data-focus={focus ?? "none"}>
+          <div className={s.paneBox} onClick={() => toggleFocus("original")}>
+            <StoryPane markdown={result?.original_story} />
           </div>
-        ) },
-      ]} />
+          <div className={s.paneBox} onClick={() => toggleFocus("inserted")}>
+            <StoryPane markdown={result?.inserted_story} />
+          </div>
+        </div>
+        <ValidationBar v={result?.validation} />
+      </div>
     </div>
   );
   const right = (
