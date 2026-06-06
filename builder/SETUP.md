@@ -85,11 +85,25 @@ npm run dev
 
 브라우저에서 `http://localhost:5173` 접속 → 좌측 트리에서 **작품 ▸ 시즌 ▸ 화** 생성 후 집필 시작.
 
+중앙 영역은 **3모드 전환**(에디터 + 빌더를 Creator로 흡수):
+
+| 모드 | 기능 | 출처 |
+|------|------|------|
+| ✍ 집필 | 초안 작성·자동저장·생성 토글·실시간 분석 | Creator 본체 |
+| ◆ 엔티티 | 스키마주도 타입 폼(7종)·필수검증·버전잠금·양방향 관계·타임라인·비밀·내보내기 | editor(Go) 흡수 |
+| ⌥ 인과 캔버스 | 인과 갭에 캐릭터 삽입 → 원본·삽입 이야기 2개 생성(tbg 검증) | builder 기능1 흡수 |
+
+타입 정의는 `editor/schema/*.json` 을 **단일 진실원**으로 읽는다(Go 에디터와 공유). 엔티티는 `creator.db` 에 저장.
+
 배포용 정적 번들:
 
 ```powershell
-npm run build   # tsc -b && vite build → web/ 로 산출(백엔드가 / 에 서빙)
+npm run build   # tsc -b && vite build → frontend/dist/ 로 산출
 ```
+
+> 개발은 Vite(5173) + `/api` 프록시로 충분하다.
+> 백엔드 단독 서빙(8000)으로 배포하려면 `frontend/dist/*` 를 `src/builder/web/` 로 복사해야 한다
+> (현재 `web/` 에는 구 정적 빌더 페이지가 들어 있음). 단일 서버 배포가 필요해지면 그때 outDir 정리.
 
 ---
 
