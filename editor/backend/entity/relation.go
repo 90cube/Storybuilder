@@ -12,8 +12,12 @@ import (
 type Relation struct {
 	ID        string
 	FromID    string
+	FromName  string
+	FromType  string
 	Rel       string
 	ToID      string
+	ToName    string
+	ToType    string
 	PairID    string
 	Version   int
 	UpdatedBy string
@@ -77,20 +81,46 @@ func DeleteRelation(db *sql.DB, pairID, who string) error {
 	return tx.Commit()
 }
 
-// ListRelations은 entityID에서 나가는 관계 목록(정방향 시점)을 돌려준다.
-// 양방향 저장이라 주입된 역방향도 해당 엔티티 기준으로 여기에 포함된다.
+// ListRelations은 entityID에 얽힌 관계를 돌려준다.
+// 나가는 관계(from_id=entity)는 그대로, 들어오는 단방향 관계(to_id=entity, 짝 없음)는
+// 상대를 ToID로 스왑하고 rel 앞에 "←"를 붙여 보여준다. 작성된 양방향 짝(pair_id 있음)은
+// 각 엔티티의 from_id 행으로만 보이므로 중복되지 않는다.
 func ListRelations(db *sql.DB, entityID string) ([]Relation, error) {
-	rows, err := db.Query(`SELECT id,from_id,rel,to_id,pair_id,version,updated_by
-	  FROM relations WHERE from_id=? ORDER BY rel`, entityID)
+	rows, err := db.Query(`SELECT r.id, r.from_id, COALESCE(fe.name, r.from_id), COALESCE(fe.type, ''),
+	    r.rel, r.to_id, COALESCE(te.name, r.to_id), COALESCE(te.type, ''),
+	    r.pair_id, r.version, r.updated_by
+	  FROM relations r
+	  LEFT JOIN entities fe ON fe.id = r.from_id
+	  LEFT JOIN entities te ON te.id = r.to_id
+	  WHERE r.from_id=? OR r.to_id=?
+	  ORDER BY CASE WHEN r.from_id=? THEN 0 ELSE 1 END, r.rel`, entityID, entityID, entityID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
+	seen := map[string]bool{}
 	var out []Relation
 	for rows.Next() {
 		var r Relation
-		if err := rows.Scan(&r.ID, &r.FromID, &r.Rel, &r.ToID, &r.PairID, &r.Version, &r.UpdatedBy); err != nil {
+		if err := rows.Scan(&r.ID, &r.FromID, &r.FromName, &r.FromType,
+			&r.Rel, &r.ToID, &r.ToName, &r.ToType,
+			&r.PairID, &r.Version, &r.UpdatedBy); err != nil {
 			return nil, err
+		}
+		// 작성된 양방향 짝(같은 pair_id를 공유하는 2행)은 한 번만 보여준다.
+		// 이관 관계는 pair_id가 행마다 고유라 중복제거에 안 걸린다.
+		if r.PairID != "" {
+			if seen[r.PairID] {
+				continue
+			}
+			seen[r.PairID] = true
+		}
+		if r.ToID == entityID && r.FromID != entityID {
+			// 들어오는 관계: 상대(from)를 ToID로 보이게 스왑(이름·타입도 함께)
+			r.ToID, r.FromID = r.FromID, entityID
+			r.ToName, r.FromName = r.FromName, r.ToName
+			r.ToType, r.FromType = r.FromType, r.ToType
+			r.Rel = "← " + r.Rel
 		}
 		out = append(out, r)
 	}

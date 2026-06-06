@@ -55,3 +55,31 @@ func GetSecret(db *sql.DB, factID string) (Secret, error) {
 	}
 	return s, nil
 }
+
+// ListSecrets는 모든 비밀을 돌려준다.
+func ListSecrets(db *sql.DB) ([]Secret, error) {
+	rows, err := db.Query(`SELECT fact_id,summary,reveal_to_reader_at,known_by,hidden_from,related_events FROM secrets`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []Secret
+	for rows.Next() {
+		var s Secret
+		var kb, hf, re string
+		if err := rows.Scan(&s.FactID, &s.Summary, &s.RevealAt, &kb, &hf, &re); err != nil {
+			return nil, err
+		}
+		if err := unmarshalJSON(kb, &s.KnownBy); err != nil {
+			return nil, err
+		}
+		if err := unmarshalJSON(hf, &s.HiddenFrom); err != nil {
+			return nil, err
+		}
+		if err := unmarshalJSON(re, &s.RelatedEvents); err != nil {
+			return nil, err
+		}
+		out = append(out, s)
+	}
+	return out, rows.Err()
+}

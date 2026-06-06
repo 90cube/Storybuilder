@@ -39,6 +39,8 @@ func main() {
 		Merged:   filepath.Join(root, "graph", "nodes_merged.jsonl"),
 		Timeline: filepath.Join(root, "corpus", "entity_timeline.json"),
 		Secrets:  filepath.Join(root, "corpus", "knowledge_state.json"),
+		Images:     filepath.Join(root, "graph", "image_table.jsonl"),
+		CharMaster: filepath.Join(root, "corpus", "character_master.json"),
 	})
 	if err != nil {
 		log.Fatalf("이관 실패: %v", err)

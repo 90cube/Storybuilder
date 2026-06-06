@@ -7,7 +7,7 @@ func TestEntityFromIDMap(t *testing.T) {
 	e := EntityFromIDMap(IDMapEntry{
 		CanonicalID: "hilder", Name: "힐더", Type: "Character",
 		GraphID: &s, Aliases: []string{"우는눈"},
-	}, map[string]string{"hilder": "마계의 조율자"})
+	}, map[string]MergedNode{"hilder": {Summary: "마계의 조율자"}})
 
 	if e.ID != "hilder" || e.Name != "힐더" || e.Type != "character" {
 		t.Fatalf("scalar wrong: %+v", e)

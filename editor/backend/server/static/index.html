@@ -1,125 +1,362 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta charset="utf-8">
-<title>스토리빌더 에디터</title>
-<style>
-  body { font-family: system-ui, sans-serif; margin: 0; display: flex; height: 100vh; }
-  #left { width: 320px; border-right: 1px solid #ccc; padding: 12px; overflow-y: auto; }
-  #right { flex: 1; padding: 16px; overflow-y: auto; }
-  .row { padding: 6px 8px; cursor: pointer; border-radius: 4px; }
-  .row:hover { background: #eef; }
-  .badge { color: #c00; font-size: 11px; }
-  label { display: block; margin: 8px 0 2px; font-size: 13px; }
-  .req::after { content: " *"; color: #c00; }
-  input, textarea, select { width: 100%; box-sizing: border-box; padding: 6px; }
-  button { margin-top: 12px; padding: 8px 14px; }
-  button:disabled { opacity: .5; }
-  #msg { color: #c00; margin-top: 8px; white-space: pre-wrap; }
-</style>
+  <meta charset="utf-8">
+  <title>Storybuilder Lore Graph Editor</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="/app.css?v=ds3">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.28.1/cytoscape.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/3d-force-graph@1.73.4/dist/3d-force-graph.min.js"></script>
 </head>
 <body>
-<div id="left">
-  <input id="search" placeholder="이름 검색...">
-  <select id="filterType"><option value="">전체 타입</option></select>
-  <div id="list"></div>
-</div>
-<div id="right">
-  <h3>새 엔티티</h3>
-  <label class="req">타입</label>
-  <select id="formType"></select>
-  <div id="fields"></div>
-  <button id="save" disabled>저장</button>
-  <div id="msg"></div>
-</div>
-<script>
-let schema = {base: [], types: []};
 
-async function loadSchema() {
-  schema = await (await fetch('/api/schema')).json();
-  const ft = document.getElementById('formType'), flt = document.getElementById('filterType');
-  for (const t of schema.types) {
-    ft.add(new Option(t.label || t.type, t.type));
-    flt.add(new Option(t.label || t.type, t.type));
-  }
-  renderForm(); refreshList();
-}
+  <!-- Toast Notification Container -->
+  <div id="toast-container"></div>
 
-function activeFields() {
-  const t = document.getElementById('formType').value;
-  const td = schema.types.find(x => x.type === t) || {fields: []};
-  return [...schema.base, ...td.fields];
-}
+  <!-- Login/Register Overlay -->
+  <div id="login-overlay">
+    <div class="login-card">
+      <div class="login-logo">STORYBUILDER LORE</div>
+      <div id="login-title-desc" class="login-desc">사내 스토리 데이터베이스용 PIN 인증</div>
+      
+      <div class="login-form">
+        <div class="form-group">
+          <input type="text" id="login-id" class="input-glow" placeholder="ID (예: ACME-123456)" required>
+        </div>
+        <div class="form-group" id="pin-field-container">
+          <input type="password" id="login-pin" class="input-glow" placeholder="PIN 번호 (6자리)" maxlength="6" required>
+        </div>
+        
+        <button id="login-submit-btn" class="btn-primary" style="width:100%; justify-content:center; padding:12px;">로그인</button>
+      </div>
 
-function renderForm() {
-  const box = document.getElementById('fields');
-  box.innerHTML = '';
-  for (const f of activeFields()) {
-    const lbl = document.createElement('label');
-    lbl.textContent = f.label || f.key;
-    if (f.required) lbl.className = 'req';
-    const inp = (f.datatype === 'text')
-      ? document.createElement('textarea') : document.createElement('input');
-    inp.id = 'f_' + f.key; inp.dataset.key = f.key; inp.dataset.req = f.required ? '1' : '';
-    inp.dataset.base = schema.base.includes(f) ? '1' : '';
-    inp.oninput = checkRequired;
-    box.appendChild(lbl); box.appendChild(inp);
-  }
-  checkRequired();
-}
+      <div class="login-footer">
+        <span id="login-toggle-text">계정이 없으신가요?</span> 
+        <a id="login-toggle-link">계정 등록하기</a>
+      </div>
+    </div>
+  </div>
 
-function checkRequired() {
-  let ok = true;
-  for (const f of activeFields()) {
-    if (f.required) { const el = document.getElementById('f_' + f.key); if (!el.value.trim()) ok = false; }
-  }
-  document.getElementById('save').disabled = !ok;
-}
+  <!-- Change PIN Modal -->
+  <div id="pin-change-overlay" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>최초 로그인: PIN 변경 필요</h3>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:13px; color:var(--text-muted); line-height:1.4;">초기 임시 비밀번호를 사용 중입니다. 보안을 위해 새로운 6자리 PIN 번호를 등록해 주세요.</p>
+        <div class="form-group">
+          <label class="req">기존 PIN</label>
+          <input type="password" id="pin-old" class="input-glow" maxlength="6" required>
+        </div>
+        <div class="form-group">
+          <label class="req">새로운 PIN</label>
+          <input type="password" id="pin-new" class="input-glow" maxlength="6" required>
+        </div>
+        <div class="form-group">
+          <label class="req">새 PIN 확인</label>
+          <input type="password" id="pin-confirm" class="input-glow" maxlength="6" required>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="pin-change-btn" class="btn-primary">PIN 번호 변경</button>
+      </div>
+    </div>
+  </div>
 
-document.getElementById('formType').onchange = renderForm;
+  <!-- Main App Layout (Hidden by default) -->
+  <div id="app" style="display:none;">
+    
+    <!-- Sidebar -->
+    <div id="left">
+      <div class="sidebar-header">
+        <h2>STORYBUILDER</h2>
+        <div class="search-container">
+          <input id="search" class="input-glow" placeholder="엔티티 이름 검색...">
+          <select id="filterType" class="input-glow">
+            <option value="">전체 유형</option>
+          </select>
+          <div class="filter-row">
+            <label class="switch-label">
+              <span class="switch">
+                <input type="checkbox" id="filterReview">
+                <span class="slider"></span>
+              </span>
+              검토 필요 엔티티만
+            </label>
+            <button id="newEntityBtn" class="btn-primary" style="padding:6px 12px; font-size:12px;">+ 생성</button>
+          </div>
+          <button id="help-open-btn">📖 데이터 구조 안내</button>
+          <button id="story-open-btn">🌳 모험가 이야기 트리</button>
+          <button id="atom-open-btn">🪐 3D 원자 뷰</button>
+        </div>
+      </div>
 
-document.getElementById('save').onclick = async () => {
-  const t = document.getElementById('formType').value;
-  const body = {type: t, data: {}, tags: []};
-  for (const f of activeFields()) {
-    const v = document.getElementById('f_' + f.key).value;
-    if (f.key === 'name') body.name = v;
-    else if (f.key === 'id') body.id = v;
-    else body.data[f.key] = v;
-  }
-  if (!body.id) body.id = (body.name || 'e') + '_' + Date.now();
-  const res = await fetch('/api/entity', {method: 'POST', body: JSON.stringify(body)});
-  const j = await res.json();
-  document.getElementById('msg').textContent = res.ok
-    ? '저장됨: ' + j.id
-    : (j.missing ? '필수 누락: ' + j.missing.join(', ') : ('오류: ' + (j.error||'')));
-  if (res.ok) refreshList();
-};
+      <!-- Scrollable Entity List -->
+      <div id="list"></div>
 
-async function refreshList() {
-  const q = document.getElementById('search').value;
-  const t = document.getElementById('filterType').value;
-  const list = await (await fetch('/api/entities?q=' + encodeURIComponent(q) + '&type=' + t)).json();
-  const box = document.getElementById('list');
-  box.innerHTML = '';
-  for (const e of list) {
-    const d = document.createElement('div');
-    d.className = 'row';
-    d.innerHTML = e.name + ' <small>(' + e.type + ')</small>'
-      + (e.review_needed ? ' <span class="badge">검토</span>' : '');
-    d.onclick = () => showEntity(e.id);
-    box.appendChild(d);
-  }
-}
-document.getElementById('search').oninput = refreshList;
-document.getElementById('filterType').onchange = refreshList;
+      <!-- User Profile & Logged-In Status -->
+      <div class="user-section">
+        <div class="user-meta">
+          <span class="username" id="logged-user-name">GUEST</span>
+          <span style="font-size:10px; color:var(--text-muted)">스토리빌더 편집기</span>
+        </div>
+        <button class="logout-btn" id="logout-btn">로그아웃</button>
+      </div>
+    </div>
 
-async function showEntity(id) {
-  const j = await (await fetch('/api/entity/' + encodeURIComponent(id))).json();
-  document.getElementById('msg').textContent = JSON.stringify(j, null, 2);
-}
+    <!-- Right Panels -->
+    <div id="right">
+      
+      <!-- Empty State -->
+      <div id="emptyState" class="empty-state">
+        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.3; margin-bottom:12px;">
+          <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"></path>
+          <path d="M6 6h10"></path>
+          <path d="M6 10h10"></path>
+        </svg>
+        <h3>편집 및 조회할 엔티티를 선택하세요</h3>
+        <p>왼쪽 목록에서 캐릭터를 선택하거나 신규 캐릭터를 등록할 수 있습니다.</p>
+      </div>
 
-loadSchema();
-</script>
+      <!-- Detailed Single Entity Card View -->
+      <div id="detailView" class="detail-card" style="display:none;">
+        <div class="card-header">
+          <div class="card-title-section">
+            <h1 id="detail-name">캐릭터 이름 <span id="detail-review-badge" class="badge-review" style="display:none;">검토 필요</span></h1>
+            <div class="subtitle">ID: <span id="detail-id">id_here</span> | 유형: <span id="detail-type">type</span></div>
+          </div>
+          <div style="display:flex; gap:10px;">
+            <button id="edit-entity-btn" class="btn-secondary">수정하기</button>
+            <button id="delete-entity-btn" class="btn-danger">삭제</button>
+          </div>
+        </div>
+
+        <!-- Dynamic Attributes Grid -->
+        <div>
+          <h3 class="card-section-title">속성 목록</h3>
+          <div id="detail-attrs" class="attrs-grid"></div>
+        </div>
+
+        <!-- Tags Badge Section -->
+        <div id="detail-tags-section" style="display:none;">
+          <h3 class="card-section-title">태그</h3>
+          <div id="detail-tags" class="metadata-badges"></div>
+        </div>
+
+        <!-- Relations UI -->
+        <div>
+          <div class="action-header" style="margin-bottom:12px; max-width:100%;">
+            <h3 class="card-section-title" style="margin-bottom:0;">관계망 연결</h3>
+            <div style="display:flex; gap:8px;">
+              <button id="add-relation-btn" class="btn-primary" style="padding:6px 12px; font-size:12px;">+ 관계 추가</button>
+              <button id="view-graph-btn" class="btn-secondary" style="padding:6px 12px; font-size:12px;">도킹 패널 열기</button>
+            </div>
+          </div>
+          <div id="detail-relations" class="relations-grid"></div>
+        </div>
+
+        <!-- Timeline Section -->
+        <div id="detail-timeline-section" style="display:none;">
+          <h3 class="card-section-title">역사 / 타임라인</h3>
+          <div id="detail-timeline" class="timeline-container"></div>
+        </div>
+
+        <!-- Secrets Section -->
+        <div id="detail-secrets-section" style="display:none;">
+          <h3 class="card-section-title">인지 기밀 / 비밀</h3>
+          <div id="detail-secrets" class="secrets-container"></div>
+        </div>
+      </div>
+
+      <!-- Create / Edit Form Card -->
+      <div id="formView" class="form-card" style="display:none;">
+        <div class="card-header" style="margin-bottom:24px; padding-bottom:12px;">
+          <h2 id="form-title">신규 엔티티 등록</h2>
+        </div>
+        <form id="entity-form">
+          <div class="form-group" id="form-id-group">
+            <label class="req" for="f_id">고유 ID</label>
+            <input type="text" id="f_id" class="input-glow" placeholder="알파벳, 숫자, 언더바 조합 (예: bakal_the_dragon_king)" required>
+          </div>
+          
+          <div class="form-group">
+            <label class="req" for="form-type-select">유형</label>
+            <select id="form-type-select" class="input-glow" required></select>
+          </div>
+
+          <!-- Dynamic Form Fields -->
+          <div id="form-fields-container"></div>
+
+          <div class="form-group" style="margin-top:16px;">
+            <label class="switch-label">
+              <span class="switch">
+                <input type="checkbox" id="f_review_needed">
+                <span class="slider"></span>
+              </span>
+              검토 필요 여부 표기
+            </label>
+          </div>
+
+          <div class="form-actions">
+            <button type="button" id="form-cancel-btn" class="btn-secondary">취소</button>
+            <button type="submit" id="form-save-btn" class="btn-primary">엔티티 저장</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Schema Help View -->
+      <div id="helpView" class="detail-card" style="display:none;">
+        <div class="card-header">
+          <div class="card-title-section">
+            <h1>📖 데이터 구조 안내</h1>
+            <div class="subtitle">엔티티 · 행 · 열, 그리고 인물 스키마 구조</div>
+          </div>
+          <button id="help-close-btn" class="btn-secondary">닫기</button>
+        </div>
+
+        <div class="help-body">
+          <h3 class="card-section-title">1. 기본 개념</h3>
+          <table class="help-table">
+            <tr><th>용어</th><th>뜻</th><th>예</th></tr>
+            <tr><td><b>엔티티 (Entity)</b></td><td>하나의 대상 — 인물·장소·아이템·사건…</td><td>"眞 소드마스터"</td></tr>
+            <tr><td><b>행 (Row)</b></td><td>엔티티 1개 = 표의 가로 한 줄</td><td>소드마스터 한 줄</td></tr>
+            <tr><td><b>열 (Column)</b></td><td>모든 엔티티가 공통으로 갖는 칸(세로)</td><td>이름·타입·요약…</td></tr>
+            <tr><td><b>타입 (서브타입)</b></td><td>엔티티의 종류</td><td>인물·장소·아이템</td></tr>
+          </table>
+          <p class="help-note">한 줄(행) = 캐릭터 하나. 그 줄에 여러 칸(열)이 있고, 칸마다 값이 들어갑니다. 같은 칸 구성의 줄이 세로로 쌓이면 표(entities 테이블)예요.</p>
+
+          <h3 class="card-section-title">2. entities 표의 고정 열 (모든 엔티티 공통)</h3>
+          <div class="help-cols">
+            <span class="help-chip">id</span>
+            <span class="help-chip">name (이름)</span>
+            <span class="help-chip">type (타입)</span>
+            <span class="help-chip">tags (태그)</span>
+            <span class="help-chip">data (타입별 필드 ▼)</span>
+            <span class="help-chip">provenance (출처)</span>
+            <span class="help-chip">review_needed (검토)</span>
+            <span class="help-chip">version (버전)</span>
+            <span class="help-chip">updated_at / updated_by</span>
+          </div>
+
+          <h3 class="card-section-title">3. 인물 하위 항목은 어디에? → data 열(JSON) 안</h3>
+          <p class="help-note">타입마다 칸이 다르므로, 타입별 필드는 <b>data</b>라는 JSON 열 한 칸에 모아 넣습니다. 그래서 새 타입을 늘려도 표 구조(열)는 안 바뀝니다. "인물"의 필드는 <code>schema/character.json</code>이 규정해요.</p>
+          <table class="help-table">
+            <tr><th>필드 키</th><th>이름</th><th>형식</th><th>필수</th></tr>
+            <tr><td>summary</td><td>한줄요약</td><td>글</td><td>✔</td></tr>
+            <tr><td>personality_traits</td><td>성격</td><td>목록</td><td>—</td></tr>
+            <tr><td>speech_style</td><td>말투</td><td>글</td><td>—</td></tr>
+            <tr><td>mbti</td><td>MBTI</td><td>글자</td><td>—</td></tr>
+            <tr><td>traits</td><td>특성</td><td>목록</td><td>—</td></tr>
+            <tr><td>aliases</td><td>별칭</td><td>목록</td><td>—</td></tr>
+            <tr><td>dfu_id / merged_ids</td><td>식별·병합</td><td>글자·목록</td><td>—</td></tr>
+            <tr><td>images</td><td>관련 이미지</td><td>목록</td><td>—</td></tr>
+          </table>
+
+          <h3 class="card-section-title">4. 엔티티에 "달라붙는" 것 (별도 표)</h3>
+          <table class="help-table">
+            <tr><th>표</th><th>역할</th></tr>
+            <tr><td><b>relations</b></td><td>관계 (A —관계어→ B, 양방향)</td></tr>
+            <tr><td><b>timeline</b></td><td>시점별 상태 변화(역사) 누적</td></tr>
+            <tr><td><b>secrets</b></td><td>비밀 — 누가 아는가 / 언제 공개되는가</td></tr>
+          </table>
+          <p class="help-note">화면의 "한 장(카드)"은 = entities의 행 1개 + 거기 달린 relations·timeline·secrets를 합쳐서 보여주는 것입니다. 저장은 표별로 쪼개고, 보기는 한 장으로 합칩니다.</p>
+        </div>
+      </div>
+
+      <!-- Story Tree View -->
+      <div id="storyView" class="detail-card" style="display:none; flex-direction:column;">
+        <div class="card-header">
+          <div class="card-title-section">
+            <h1>🌳 모험가 이야기 트리</h1>
+            <div class="subtitle">시대·인과 순 스토리 줄기 · 노드 클릭 시 관계 확장</div>
+          </div>
+          <button id="story-close-btn" class="btn-secondary">닫기</button>
+        </div>
+        <div class="story-legend">
+          <span><i class="sdot hero"></i> 모험가</span>
+          <span><i class="sdot event"></i> 사건</span>
+          <span><i class="sdot char"></i> 인물</span>
+          <span><i class="sline causal"></i> 인과</span>
+          <span><i class="sline appear"></i> 등장</span>
+          <span style="color:var(--text-muted)">노드를 클릭하면 그 인물의 관계가 펼쳐집니다</span>
+        </div>
+        <div id="story-cy" class="story-cy"></div>
+      </div>
+
+      <!-- 3D Atom View (원자껍질 구조) -->
+      <div id="atomView" class="detail-card" style="display:none; flex-direction:column;">
+        <div class="card-header">
+          <div class="card-title-section">
+            <h1>🪐 3D 원자 뷰</h1>
+            <div class="subtitle">맨 위 모험가 → 직업 원판(계통별 색) → 아래로 시간순 사건 줄기 · 드래그 회전 / 휠 확대</div>
+          </div>
+          <button id="atom-close-btn" class="btn-secondary">닫기</button>
+        </div>
+        <div class="story-legend">
+          <span><i class="sdot hero"></i> 모험가(맨 위)</span>
+          <span><i class="adot lineage"></i> 직업군(원형·색=직업군)</span>
+          <span style="color:var(--text-muted)">→ 전직 → 眞 → 2차각성</span>
+          <span><i class="sdot event"></i> 사건(시간순 ↓)</span>
+          <span><i class="sdot char"></i> 인물</span>
+          <span><i class="sline causal"></i> 인과</span>
+          <span style="color:#fbbf24">━ 모험가 개입</span>
+          <span style="color:var(--text-muted)">상단=직업군 원판 · 아래로 갈수록 과거 · 노드 클릭 → 상세</span>
+        </div>
+        <div class="atom-wrap">
+          <div id="atom-3d" class="atom-3d"></div>
+          <div id="atom-labels" class="atom-labels"></div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Cytoscape Docking Panel -->
+    <div id="graph-panel">
+      <div class="graph-panel-header">
+        <h3>인물 관계망</h3>
+        <button id="close-graph-btn" class="logout-btn" style="font-size:24px; padding:0 8px;">&times;</button>
+      </div>
+      <div id="cy" class="cy-container"></div>
+    </div>
+  </div>
+
+  <!-- Add Relation Dialog Modal -->
+  <div id="relation-modal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>새로운 스토리 관계 정의</h3>
+        <button class="logout-btn" id="relation-modal-close" style="font-size:18px;">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group" style="position:relative;">
+          <label class="req">연결 대상 캐릭터 검색</label>
+          <input type="text" id="rel-target-search" class="input-glow" placeholder="연결할 캐릭터의 이름을 검색하세요..." autocomplete="off">
+          <div id="rel-search-results" class="search-results-dropdown"></div>
+          <div id="selected-target-preview" style="margin-top:8px; font-size:12px; color:var(--color-secondary); display:none;">
+            선택된 대상: <strong id="selected-target-name"></strong> (<span id="selected-target-id"></span>)
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="req">이 관계의 정의 (관계어)</label>
+          <select id="rel-type-select" class="input-glow">
+            <option value="">관계 유형 선택...</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="relation-save-btn" class="btn-primary" disabled>관계 연결하기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Image Lightbox -->
+  <div id="lightbox-overlay" class="lightbox-overlay" style="display:none;">
+    <span class="lightbox-close" id="lightbox-close">&times;</span>
+    <img id="lightbox-img" class="lightbox-img" src="" alt="이미지 미리보기">
+  </div>
+
+  <script src="/app.js?v=5" type="module"></script>
 </body>
 </html>

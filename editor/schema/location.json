@@ -1,0 +1,13 @@
+{
+  "type": "location",
+  "label": "장소",
+  "fields": [
+    { "key": "summary",       "label": "한줄요약", "datatype": "text",   "required": true },
+    { "key": "parent_region", "label": "상위지역", "datatype": "string", "required": false },
+    { "key": "images",        "label": "관련 이미지", "datatype": "list",   "required": false },
+    { "key": "aliases",       "label": "별칭",     "datatype": "list",   "required": false },
+    { "key": "dfu_id",        "label": "DFU ID",   "datatype": "string", "required": false },
+    { "key": "merged_ids",    "label": "병합ID",   "datatype": "list",   "required": false }
+  ],
+  "mixins": ["relations", "timeline", "secrets"]
+}
