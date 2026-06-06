@@ -21,6 +21,7 @@
 .editor::placeholder { color: var(--text-mut); }
 .editBar { display: flex; align-items: center; gap: var(--sp-3); padding: 6px 20px; border-top: 1px solid var(--line); font: 500 var(--fs-xs)/1 var(--font-mono); color: var(--text-mut); }
 .count[data-over="true"] { color: var(--ember-b); }
+.inlineTag { font: 600 10px/1 var(--font-mono); padding: 3px 7px; border-radius: 999px; background: var(--ember-glow); color: var(--ember-b); border: 1px solid var(--ember-d); }
 .savedBadge { margin-left: auto; }
 .placeholder { display: grid; place-items: center; height: 100%; color: var(--text-mut); font-style: italic; }
 
@@ -38,6 +39,15 @@
 .charHead { display: flex; align-items: center; gap: 8px; color: #fff; font-size: var(--fs-md); }
 .charDesc { color: var(--text-dim); font-size: var(--fs-sm); line-height: 1.7; margin-top: 6px; }
 .charMeta { color: var(--ember-b); font-size: var(--fs-xs); font-family: var(--font-mono); margin-top: 6px; }
+
+/* canon diff 행 */
+.canonRow { display: flex; align-items: baseline; gap: 8px; padding: 8px 10px; border-radius: 6px; background: var(--ink-750); border: 1px solid var(--line-2); font-size: var(--fs-sm); color: var(--text); }
+.canonRow[data-change="추가"] { border-left: 3px solid var(--jade); }
+.canonRow[data-change="변경"] { border-left: 3px solid var(--ember); }
+.canonRow[data-change="충돌"] { border-left: 3px solid var(--blood); }
+.cTag { font: 700 10px/1 var(--font-mono); padding: 2px 6px; border-radius: 999px; background: var(--ink-700); color: var(--text-dim); flex: none; }
+.canonRow[data-change="추가"] .cTag { color: var(--jade); }
+.canonRow[data-change="변경"] .cTag { color: var(--ember-b); }
 
 /* 우: 파이프라인 레일 */
 .rail { display: flex; flex-direction: column; height: 100%; min-height: 0; padding: var(--sp-3); gap: var(--sp-3); }

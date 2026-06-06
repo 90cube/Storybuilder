@@ -3,6 +3,8 @@ import { useCallback, useEffect, useState } from "react";
 
 export type Project = { id: number; title: string };
 export type Chapter = { id: number; project_id: number; idx: number; title: string; state: string };
+export type CanonItem = { name?: string; from?: string; rel?: string; to?: string; title?: string; description?: string; change: string };
+export type GraphEntity = { id: string; name: string; category: string; source: string; status: string };
 export type ChapterDetail = {
   chapter: { id: number; project_id: number; title: string };
   state: string;
@@ -52,6 +54,13 @@ export function useCreator() {
     post("/api/chars/assist", { name, context }) as Promise<{ name: string; category: string; description: string; speech_style: string; relations: string[] }>, []);
   const registerEntity = useCallback((entity: Record<string, unknown>, chapter_id: number) =>
     post(`/api/graph/entity?chapter_id=${chapter_id}`, entity) as Promise<{ id: string }>, []);
+  const ppPolish = useCallback((chapter_id: number) =>
+    post(`/api/postprocess/polish/${chapter_id}`, {}) as Promise<{ text: string; state: string }>, []);
+  const canonDiff = useCallback((chapter_id: number) =>
+    post(`/api/canon/diff/${chapter_id}`, {}) as Promise<{ entities: CanonItem[]; relations: CanonItem[]; events: CanonItem[]; state: string }>, []);
+  const canonPromote = useCallback((chapter_id: number, entities: CanonItem[], relations: CanonItem[]) =>
+    post("/api/canon/promote", { chapter_id, entities, relations }) as Promise<{ entities: number; relations: number; state: string }>, []);
+  const graphEntities = useCallback(() => j<GraphEntity[]>("/api/graph/entities"), []);
 
-  return { projects, states, createProject, listChapters, createChapter, getChapter, saveText, advance, gen, detect, assist, registerEntity };
+  return { projects, states, createProject, listChapters, createChapter, getChapter, saveText, advance, gen, detect, assist, registerEntity, ppPolish, canonDiff, canonPromote, graphEntities };
 }

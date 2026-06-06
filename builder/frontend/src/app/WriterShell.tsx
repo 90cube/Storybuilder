@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Badge, Button, Input, Panel, Spinner } from "../components/primitives";
 import { AspectLayout, ResizableSplit, StatusBar, Titlebar } from "../components/shell";
-import { useCreator, type Chapter, type ChapterDetail } from "../lib/useCreator";
+import { useCreator, type Chapter, type ChapterDetail, type CanonItem, type GraphEntity } from "../lib/useCreator";
 import { CHAPTER_AUTOSAVE_MS, DRAFT_TARGET_CHARS } from "../lib/const";
 import w from "./writer.module.css";
 
@@ -24,11 +24,15 @@ export function WriterShell() {
   const [result, setResult] = useState<{ kind: string; text: string } | null>(null);
   const [cands, setCands] = useState<{ name: string; description?: string }[] | null>(null);
   const [cards, setCards] = useState<Record<string, { description: string; speech_style: string; relations: string[] }>>({});
+  const [canon, setCanon] = useState<{ entities: CanonItem[]; relations: CanonItem[]; events: CanonItem[] } | null>(null);
+  const [dbEnts, setDbEnts] = useState<GraphEntity[]>([]);
   const timer = useRef<number>(0);
+  const refreshDb = useCallback(async () => { try { setDbEnts(await api.graphEntities()); } catch { /* */ } }, [api.graphEntities]);
+  useEffect(() => { refreshDb(); }, [refreshDb]);
 
   const refreshChapters = useCallback(async (pid: number) => {
     setChapters(await api.listChapters(pid));
-  }, [api]);
+  }, [api.listChapters]);
 
   useEffect(() => {
     if (projectId == null && api.projects.length) setProjectId(api.projects[0].id);
@@ -86,6 +90,26 @@ export function WriterShell() {
     await api.registerEntity({ name, category: "character", description: c?.description ?? "", speech_style: c?.speech_style ?? "", relations: c?.relations ?? [] }, active.chapter.id);
     setCands((cs) => cs?.filter((x) => x.name !== name) ?? null);
     setActive((a) => a && { ...a, state: "DB_SYNC" });
+    refreshDb();
+  };
+  const onPartialPolish = async () => {
+    if (!active || busy) return;
+    setBusy("pp");
+    try { const r = await api.ppPolish(active.chapter.id); setResult({ kind: "final", text: r.text }); setActive({ ...active, state: r.state }); }
+    catch (e) { alert("다듬기 실패: " + (e as Error).message); }
+    finally { setBusy(""); }
+  };
+  const onCanonDiff = async () => {
+    if (!active || busy) return;
+    setBusy("canon");
+    try { const r = await api.canonDiff(active.chapter.id); setCanon({ entities: r.entities, relations: r.relations, events: r.events }); setActive({ ...active, state: r.state }); }
+    catch (e) { alert("추출 실패: " + (e as Error).message); }
+    finally { setBusy(""); }
+  };
+  const onPromote = async () => {
+    if (!active || !canon) return;
+    const r = await api.canonPromote(active.chapter.id, canon.entities, canon.relations);
+    setCanon(null); setActive((a) => a && { ...a, state: r.state }); refreshDb();
   };
 
   const over = text.length > DRAFT_TARGET_CHARS;
@@ -120,6 +144,16 @@ export function WriterShell() {
           </div>
         </>
       )}
+      <div className={w.projHead}>DB · 엔티티 ({dbEnts.length})</div>
+      <div className={w.tree}>
+        {dbEnts.slice(0, 60).map((e) => (
+          <div key={e.id} className={w.item}>
+            <span className={w.name}>{e.name}</span>
+            <span className={w.badge} style={{ color: e.source === "canon" ? "var(--jade)" : "var(--text-mut)" }}>{e.source}</span>
+          </div>
+        ))}
+        {!dbEnts.length && <div className={w.charMeta} style={{ padding: "4px 8px" }}>아직 등록된 엔티티 없음</div>}
+      </div>
     </Panel>
   );
 
@@ -131,6 +165,9 @@ export function WriterShell() {
         placeholder="여기에 ~2000자 초안을 씁니다. 멈추면 자동 저장돼요." />
       <div className={w.editBar}>
         <span className={w.count} data-over={over}>{text.length} / {DRAFT_TARGET_CHARS}자{over ? " — 청킹 권고" : ""}</span>
+        {dbEnts.filter((e) => e.name && text.includes(e.name)).slice(0, 8).map((e) => (
+          <span key={e.id} className={w.inlineTag}>{e.name}</span>
+        ))}
         <span className={w.savedBadge}><Badge tone="jade">저장: {saved || "—"}</Badge></span>
       </div>
     </div>
@@ -175,9 +212,26 @@ export function WriterShell() {
       </div>
     </div>
   );
+  const canonPanel = active && canon && (
+    <div className={w.editorWrap}>
+      <div className={w.diffHead}>
+        <span>정사 승격 (DB_SYNC2) · 엔티티 {canon.entities.length} · 관계 {canon.relations.length} · 사건 {canon.events.length}</span>
+        <span style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+          <Button variant="primary" onClick={onPromote}>전체 승격 → canon</Button>
+          <Button variant="ghost" onClick={() => setCanon(null)}>닫기</Button>
+        </span>
+      </div>
+      <div className={w.charList}>
+        {canon.entities.map((e, i) => <div key={"e" + i} className={w.canonRow} data-change={e.change}><span className={w.cTag}>{e.change}</span><b>{e.name}</b><span className={w.charDesc}> {e.description}</span></div>)}
+        {canon.relations.map((r, i) => <div key={"r" + i} className={w.canonRow} data-change={r.change}><span className={w.cTag}>{r.change}</span>{r.from} —{r.rel}→ {r.to}</div>)}
+        {canon.events.map((v, i) => <div key={"v" + i} className={w.canonRow} data-change={v.change}><span className={w.cTag}>{v.change}</span>📅 {v.title}</div>)}
+        {!canon.entities.length && !canon.relations.length && !canon.events.length && <div className={w.placeholder} style={{ height: "auto", padding: 24 }}>추출된 노드/엣지 없음</div>}
+      </div>
+    </div>
+  );
   const center = !active
     ? <div className={w.placeholder}>좌측에서 화를 열거나 새로 만드세요.</div>
-    : (cands ? charPanel : (result ? diff : editor));
+    : (canon ? canonPanel : (cands ? charPanel : (result ? diff : editor)));
 
   const right = (
     <div className={w.rail}>
@@ -201,6 +255,13 @@ export function WriterShell() {
         <span className={w.lbl} style={{ marginTop: 6 }}>구조화</span>
         <Button disabled={!active || !!busy} onClick={onDetect}>
           {busy === "detect" ? <><Spinner /> 감지 중…</> : "캐릭터 감지"}
+        </Button>
+        <span className={w.lbl} style={{ marginTop: 6 }}>후공정 (강제 초기화)</span>
+        <Button disabled={!active || !!busy} onClick={onPartialPolish}>
+          {busy === "pp" ? <><Spinner /> 다듬는 중…</> : "부분 다듬기"}
+        </Button>
+        <Button disabled={!active || !!busy} onClick={onCanonDiff}>
+          {busy === "canon" ? <><Spinner /> 추출 중…</> : "정사 추출·diff"}
         </Button>
       </div>
     </div>
