@@ -23,6 +23,9 @@ editor/**/*.test
 # builder 내부 산출물 — 가상환경·생성 드래프트·의존성·빌드물은 추적하지 않는다
 builder/.venv/
 builder/drafts/
+builder/.run/
+builder/creator.db
+builder/**/*.parquet
 builder/**/__pycache__/
 builder/**/*.pyc
 builder/**/*.egg-info/
