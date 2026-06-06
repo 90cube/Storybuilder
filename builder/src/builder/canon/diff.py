@@ -19,9 +19,10 @@ def diff_against_graph(extracted: dict, project_id: int) -> dict:
     return {"entities": ents, "relations": rels, "events": evs}
 
 
-def promote(entities: list[dict], relations: list[dict], project_id: int) -> dict:
-    """승인된 항목을 canon으로 승격(작품 한정, source=canon, status=confirmed)."""
-    n_e = n_r = 0
+def promote(entities: list[dict], relations: list[dict], project_id: int,
+            events: list[dict] | None = None) -> dict:
+    """승인된 항목을 canon으로 승격(작품 한정, source=canon, status=confirmed). 사건은 인과 캔버스에 반영."""
+    n_e = n_r = n_v = 0
     for e in entities:
         graph.upsert_entity({**e, "source": "canon", "status": "confirmed"}, project_id)
         n_e += 1
@@ -29,4 +30,8 @@ def promote(entities: list[dict], relations: list[dict], project_id: int) -> dic
         if r.get("from") and r.get("to"):
             graph.add_relation(r["from"], r.get("rel", "관련"), r["to"], project_id)
             n_r += 1
-    return {"entities": n_e, "relations": n_r}
+    for v in (events or []):
+        if v.get("title") or v.get("name"):
+            graph.upsert_event({**v, "source": "canon", "status": "confirmed"}, project_id)
+            n_v += 1
+    return {"entities": n_e, "relations": n_r, "events": n_v}

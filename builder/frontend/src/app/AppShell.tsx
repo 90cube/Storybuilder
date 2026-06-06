@@ -11,7 +11,7 @@ import s from "./app.module.css";
 
 export function AppShell() {
   const aspect = useAspect();
-  const { events, plots, systemDefault, online, generate } = useBuilder();
+  const { events, plots, systemDefault, online, generate } = useBuilder(null);
   const [focusedId, setFocusedId] = useState<string | null>(null);
   const [characters, setCharacters] = useState<Character[]>([]);
   const addCharacter = (c: Character) =>

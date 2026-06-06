@@ -11,6 +11,8 @@ from builder.extract import service as extract_svc
 from builder.chars import assist as chars_svc
 from builder.postproc import service as post_svc
 from builder.canon import diff as canon
+from builder import service as gen_svc
+from builder.domain.insertion import NewCharacter
 
 router = APIRouter(prefix="/api")
 
@@ -67,6 +69,23 @@ class PromoteIn(BaseModel):
     chapter_id: int
     entities: list[dict] = []
     relations: list[dict] = []
+    events: list[dict] = []
+
+
+class LaneCharIn(BaseModel):
+    name: str
+    concept: str = ""
+    motive: str = ""
+
+
+class LaneGenIn(BaseModel):
+    project_id: int
+    before_id: str
+    after_id: str
+    new_characters: list[LaneCharIn] = []
+    plot_key: str = "five"
+    context_ids: list[str] = []
+    system: str | None = None
 
 
 # ── 에디터 흡수: 스키마주도 엔티티 편집 ──
@@ -285,7 +304,7 @@ def canon_diff(chapter_id: int):
 @router.post("/canon/promote")
 def canon_promote(body: PromoteIn):
     """승인 항목을 canon 승격 + DB 반영(작품 한정). DB_SYNC2→CHAPTER_SAVE."""
-    res = canon.promote(body.entities, body.relations, repo.project_of(body.chapter_id))
+    res = canon.promote(body.entities, body.relations, repo.project_of(body.chapter_id), body.events)
     repo.set_state(body.chapter_id, "CHAPTER_SAVE")
     return {**res, "state": repo.get_state(body.chapter_id)}
 
@@ -320,6 +339,29 @@ def graph_entity(body: EntityIn, chapter_id: int):
         if pipeline.can_advance(repo.get_state(chapter_id), s):
             repo.set_state(chapter_id, s)
     return {"id": eid}
+
+
+# ── 인과 캔버스(빌더 기능1) — 작품 자체 사건 기반 ──
+@router.get("/project-events")
+def project_events(project: int):
+    """현재 작품의 사건 목록(corpus 아님). 인과 캔버스가 읽는다."""
+    return graph.list_events(project)
+
+
+@router.post("/lane/generate")
+def lane_generate(body: LaneGenIn):
+    """작품 사건 사이에 신캐를 끼워 원본·삽입 2개 생성. corpus 대신 작품 events 사용."""
+    by_id = graph.events_by_id(body.project_id)
+    if body.before_id not in by_id or body.after_id not in by_id:
+        raise HTTPException(400, "앵커 사건이 이 작품에 없습니다")
+    try:
+        return gen_svc.generate_pair(
+            body.before_id, body.after_id,
+            [NewCharacter(**c.model_dump()) for c in body.new_characters],
+            body.plot_key, context_ids=body.context_ids, system=body.system,
+            save=False, events_by_id=by_id)
+    except Exception as e:
+        raise HTTPException(500, f"{type(e).__name__}: {e}")
 
 
 # ── 에디터 흡수: 스키마·타입 폼·관계·타임라인·비밀·내보내기·편집로그 ──

@@ -75,3 +75,56 @@ def add_relation(from_name: str, rel: str, to_name: str, project_id: int, who: s
     """양방향 주입(역관계 포함)은 entity.set_relation 에 위임 — 단일 경로 유지."""
     from builder.store import entity  # 지연 import: graph↔entity 순환 회피
     entity.set_relation(from_name, rel, to_name, project_id, who)
+
+
+# ── 사건(events) — 작품별 인과 캔버스 백엔드 ──
+def list_events(project_id: int) -> list[dict]:
+    """인과 캔버스용 사건 목록(작품 한정). corpus가 아니라 이 작품의 events."""
+    with get_conn() as c:
+        rows = c.execute(
+            "SELECT id,title,era,sequence,causal_out_json,chars_json FROM events "
+            "WHERE project_id=? ORDER BY sequence,id", (project_id,)).fetchall()
+    return [{"id": r["id"], "title": r["title"] or "", "era": r["era"] or "",
+             "sequence": r["sequence"] or 0,
+             "causal_out": json.loads(r["causal_out_json"] or "[]"),
+             "characters": json.loads(r["chars_json"] or "[]")} for r in rows]
+
+
+def events_by_id(project_id: int) -> dict[str, dict]:
+    """generate_pair/validate가 쓰는 {id: 사건dict} 맵(작품 한정, corpus 형태로 변환)."""
+    out: dict[str, dict] = {}
+    for e in list_events(project_id):
+        out[e["id"]] = {
+            "event_id": e["id"], "title": e["title"], "era": e["era"],
+            "sequence": e["sequence"], "causal_out": e["causal_out"],
+            "characters_involved": [{"name": n} for n in e["characters"]],
+        }
+    return out
+
+
+def upsert_event(ev: dict, project_id: int, who: str = "creator") -> str:
+    """사건 등록/보강(작품 한정). id = '{project_id}:evt:{slug}'."""
+    title = (ev.get("title") or ev.get("name") or "").strip()
+    if not title:
+        raise ValueError("event title required")
+    eid = ev.get("id") or f"{project_id}:evt:{_slug(title)}"
+    chars = ev.get("characters") or ev.get("chars") or []
+    cout = ev.get("causal_out") or []
+    with get_conn() as c:
+        row = c.execute("SELECT id FROM events WHERE id=? OR (project_id=? AND title=?)",
+                        (eid, project_id, title)).fetchone()
+        if row:
+            c.execute("""UPDATE events SET title=?,era=?,what=?,sequence=?,causal_out_json=?,chars_json=?,
+                         source=?,status=?,updated_at=?,updated_by=?,version=version+1 WHERE id=?""",
+                      (title, ev.get("era", ""), ev.get("what", ev.get("description", "")),
+                       ev.get("sequence", 0), json.dumps(cout, ensure_ascii=False),
+                       json.dumps(chars, ensure_ascii=False),
+                       ev.get("source", "fan"), ev.get("status", "pending"), _now(), who, row["id"]))
+            return row["id"]
+        c.execute("""INSERT INTO events(id,project_id,title,era,what,sequence,causal_out_json,chars_json,
+                     source,status,updated_at,updated_by) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)""",
+                  (eid, project_id, title, ev.get("era", ""),
+                   ev.get("what", ev.get("description", "")), ev.get("sequence", 0),
+                   json.dumps(cout, ensure_ascii=False), json.dumps(chars, ensure_ascii=False),
+                   ev.get("source", "fan"), ev.get("status", "pending"), _now(), who))
+        return eid

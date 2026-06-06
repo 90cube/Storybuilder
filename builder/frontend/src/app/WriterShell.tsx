@@ -218,7 +218,7 @@ export function WriterShell() {
   };
   const onPromote = async () => {
     if (!active || !canon) return;
-    const r = await api.canonPromote(active.chapter.id, canon.entities, canon.relations);
+    const r = await api.canonPromote(active.chapter.id, canon.entities, canon.relations, canon.events);
     setCanon(null); setActive((a) => a && { ...a, state: r.state }); refreshDb();
   };
 
@@ -403,7 +403,7 @@ export function WriterShell() {
   const centerInner = centerMode === "entities"
     ? <EntityEditor api={api} projectId={currentProj} onChanged={refreshDb} />
     : centerMode === "canvas"
-      ? <LaneCanvas api={api} chapterId={active?.chapter.id ?? null} />
+      ? <LaneCanvas api={api} projectId={currentProj} chapterId={active?.chapter.id ?? null} />
       : writeCenter;
   const center = (
     <div className={w.centerWrap}>

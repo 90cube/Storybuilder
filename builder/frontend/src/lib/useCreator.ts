@@ -76,8 +76,8 @@ export function useCreator() {
     post(`/api/postprocess/polish/${chapter_id}`, {}) as Promise<{ text: string; state: string }>, []);
   const canonDiff = useCallback((chapter_id: number) =>
     post(`/api/canon/diff/${chapter_id}`, {}) as Promise<{ entities: CanonItem[]; relations: CanonItem[]; events: CanonItem[]; state: string }>, []);
-  const canonPromote = useCallback((chapter_id: number, entities: CanonItem[], relations: CanonItem[]) =>
-    post("/api/canon/promote", { chapter_id, entities, relations }) as Promise<{ entities: number; relations: number; state: string }>, []);
+  const canonPromote = useCallback((chapter_id: number, entities: CanonItem[], relations: CanonItem[], events: CanonItem[] = []) =>
+    post("/api/canon/promote", { chapter_id, entities, relations, events }) as Promise<{ entities: number; relations: number; events: number; state: string }>, []);
   const graphEntities = useCallback((project: number) => j<GraphEntity[]>(`/api/graph/entities?project=${project}`), []);
   const analyze = useCallback((chapter_id: number) =>
     post(`/api/analyze/${chapter_id}`, {}) as Promise<{ events: CanonItem[]; entities: CanonItem[]; relations: CanonItem[] }>, []);
