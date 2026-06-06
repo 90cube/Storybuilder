@@ -13,6 +13,8 @@ from builder.plot.templates import PLOTS
 from builder.domain.insertion import NewCharacter
 from builder.llm import prompts
 from builder import service
+from builder.store.db import init_db
+from builder.api.creator import router as creator_router
 
 
 class CharIn(BaseModel):
@@ -31,10 +33,12 @@ class GenIn(BaseModel):
 
 
 def create_app() -> FastAPI:
+    init_db()  # Creator 통합 DB 스키마 보장
     app = FastAPI(title="DNF StoryBuilder — 기능1")
     # 개발(Vite 5173) + 향후 Electron 대비.
     app.add_middleware(CORSMiddleware, allow_origins=["*"],
                        allow_methods=["*"], allow_headers=["*"])
+    app.include_router(creator_router)
 
     @app.get("/api/entities")
     def entities(q: str = "", category: str = "person", limit: int = 50):
