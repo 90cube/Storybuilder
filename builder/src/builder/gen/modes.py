@@ -10,7 +10,8 @@ SYSTEM = """\
 
 # mode → (저장 kind, temperature, max_tokens, 지시)
 MODES: dict[str, tuple[str, float, int, str]] = {
-    "draft": ("draft", 0.7, 2600,
+    # 저장 kind는 작업용 'draft'와 충돌 안 나게 'redraft'(제안본). 채택 시 saveText가 draft에 반영.
+    "draft": ("redraft", 0.7, 2600,
               "아래 초안을 같은 분량(~2000자)으로, 흐름과 문장을 더 매끄럽게 다시 써라. 사건·설정은 유지."),
     "polish": ("polish", 0.5, 2800,
                "아래 원문의 의미·사건을 그대로 두고, 문체·리듬·가독성만 다듬어라. 어색한 문장 교정."),

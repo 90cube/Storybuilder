@@ -28,6 +28,7 @@ export function WriterShell() {
   const [canon, setCanon] = useState<{ entities: CanonItem[]; relations: CanonItem[]; events: CanonItem[] } | null>(null);
   const [dbEnts, setDbEnts] = useState<GraphEntity[]>([]);
   const timer = useRef<number>(0);
+  const textRef = useRef<string>("");
   const refreshDb = useCallback(async () => { try { setDbEnts(await api.graphEntities()); } catch { /* */ } }, [api.graphEntities]);
   useEffect(() => { refreshDb(); }, [refreshDb]);
 
@@ -59,7 +60,8 @@ export function WriterShell() {
 
   const openChapter = async (id: number) => {
     const d = await api.getChapter(id);
-    setActive(d); setText(d.texts.draft?.text ?? ""); setSaved("불러옴");
+    const draft = d.texts.draft?.text ?? "";
+    setActive(d); setText(draft); textRef.current = draft; setSaved("불러옴");
     setCands(null); setCanon(null); setResult(null);
   };
   const addSeason = async (pid: number) => {
@@ -107,21 +109,29 @@ export function WriterShell() {
     loadChapters(active.chapter.season_id);
   };
 
-  // 10초 무동작 자동저장
+  // 저장 1곳: 최신 textRef를 백엔드로. 블러·디바운스·생성전 flush가 공용으로 호출.
+  const cid = active?.chapter.id ?? null;
+  const doSave = useCallback(async () => {
+    if (cid == null) return;
+    setSaved("저장 중…");
+    try { await api.saveText(cid, textRef.current); setSaved("저장됨 " + new Date().toLocaleTimeString()); }
+    catch (e) { setSaved("저장 실패: " + (e as Error).message); }
+  }, [cid, api.saveText]);
+  const onText = (v: string) => { setText(v); textRef.current = v; setSaved("수정됨 · 대기"); };
+
+  // 무동작 N초 후 자동저장 (블러/생성전 즉시저장과 병행)
   useEffect(() => {
-    if (!active) return;
+    if (cid == null) return;
     window.clearTimeout(timer.current);
-    timer.current = window.setTimeout(async () => {
-      await api.saveText(active.chapter.id, text);
-      setSaved(new Date().toLocaleTimeString());
-    }, CHAPTER_AUTOSAVE_MS);
+    timer.current = window.setTimeout(doSave, CHAPTER_AUTOSAVE_MS);
     return () => window.clearTimeout(timer.current);
-  }, [text, active, api]);
+  }, [text, cid, doSave]);
 
   const onToggle = async (mode: string) => {
     if (!active || busy) return;
     setBusy(mode); setResult(null);
     try {
+      await doSave();  // 생성은 DB의 초안을 읽으므로 먼저 flush
       const r = await api.gen(active.chapter.id, mode);
       setResult({ kind: r.kind, text: r.text });
       setActive({ ...active, state: r.state });
@@ -130,14 +140,14 @@ export function WriterShell() {
   };
   const accept = async () => {
     if (!active || !result) return;
-    setText(result.text);
+    setText(result.text); textRef.current = result.text;
     await api.saveText(active.chapter.id, result.text);
-    setResult(null); setSaved(new Date().toLocaleTimeString());
+    setResult(null); setSaved("저장됨 " + new Date().toLocaleTimeString());
   };
   const onDetect = async () => {
     if (!active || busy) return;
     setBusy("detect");
-    try { const r = await api.detect(active.chapter.id); setCands(r.candidates); setActive({ ...active, state: r.state }); }
+    try { await doSave(); const r = await api.detect(active.chapter.id); setCands(r.candidates); setActive({ ...active, state: r.state }); }
     catch (e) { alert("감지 실패: " + (e as Error).message); }
     finally { setBusy(""); }
   };
@@ -158,14 +168,14 @@ export function WriterShell() {
   const onPartialPolish = async () => {
     if (!active || busy) return;
     setBusy("pp");
-    try { const r = await api.ppPolish(active.chapter.id); setResult({ kind: "final", text: r.text }); setActive({ ...active, state: r.state }); }
+    try { await doSave(); const r = await api.ppPolish(active.chapter.id); setResult({ kind: "final", text: r.text }); setActive({ ...active, state: r.state }); }
     catch (e) { alert("다듬기 실패: " + (e as Error).message); }
     finally { setBusy(""); }
   };
   const onCanonDiff = async () => {
     if (!active || busy) return;
     setBusy("canon");
-    try { const r = await api.canonDiff(active.chapter.id); setCanon({ entities: r.entities, relations: r.relations, events: r.events }); setActive({ ...active, state: r.state }); }
+    try { await doSave(); const r = await api.canonDiff(active.chapter.id); setCanon({ entities: r.entities, relations: r.relations, events: r.events }); setActive({ ...active, state: r.state }); }
     catch (e) { alert("추출 실패: " + (e as Error).message); }
     finally { setBusy(""); }
   };
@@ -251,8 +261,9 @@ export function WriterShell() {
     <div className={w.editorWrap}>
       <input className={w.titleInput} value={active.chapter.title} onBlur={saveTitle}
         onChange={(e) => setActive({ ...active, chapter: { ...active.chapter, title: e.target.value } })} />
-      <textarea className={w.editor} value={text} onChange={(e) => setText(e.target.value)}
-        placeholder="여기에 ~2000자 초안을 씁니다. 멈추면 자동 저장돼요." />
+      <textarea className={w.editor} value={text} onBlur={doSave}
+        onChange={(e) => onText(e.target.value)}
+        placeholder="여기에 ~2000자 초안을 씁니다. 멈추거나(10초) 칸을 벗어나면 자동 저장돼요." />
       <div className={w.editBar}>
         <span className={w.count} data-over={over}>{text.length} / {DRAFT_TARGET_CHARS}자{over ? " — 청킹 권고" : ""}</span>
         {dbEnts.filter((e) => e.name && text.includes(e.name)).slice(0, 8).map((e) => (
