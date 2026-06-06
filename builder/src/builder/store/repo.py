@@ -24,6 +24,21 @@ def list_projects() -> list[dict]:
         return [dict(r) for r in c.execute("SELECT * FROM projects ORDER BY updated_at DESC")]
 
 
+def rename_project(pid: int, title: str) -> None:
+    with get_conn() as c:
+        c.execute("UPDATE projects SET title=?, updated_at=? WHERE id=?", (title, _now(), pid))
+
+
+def delete_project(pid: int) -> None:
+    with get_conn() as c:
+        sids = [r["id"] for r in c.execute("SELECT id FROM seasons WHERE project_id=?", (pid,))]
+        cids = [r["id"] for r in c.execute("SELECT id FROM chapters WHERE project_id=?", (pid,))]
+        _wipe_chapters(c, cids)
+        for sid in sids:
+            c.execute("DELETE FROM seasons WHERE id=?", (sid,))
+        c.execute("DELETE FROM projects WHERE id=?", (pid,))
+
+
 # ── seasons ──
 def create_season(project_id: int, title: str = "", idx: int = 0) -> int:
     with get_conn() as c:
@@ -38,6 +53,18 @@ def list_seasons(project_id: int) -> list[dict]:
     with get_conn() as c:
         return [dict(r) for r in c.execute(
             "SELECT * FROM seasons WHERE project_id=? ORDER BY idx,id", (project_id,))]
+
+
+def rename_season(sid: int, title: str) -> None:
+    with get_conn() as c:
+        c.execute("UPDATE seasons SET title=? WHERE id=?", (title, sid))
+
+
+def delete_season(sid: int) -> None:
+    with get_conn() as c:
+        cids = [r["id"] for r in c.execute("SELECT id FROM chapters WHERE season_id=?", (sid,))]
+        _wipe_chapters(c, cids)
+        c.execute("DELETE FROM seasons WHERE id=?", (sid,))
 
 
 # ── chapters (시즌 소속, + 초기 run/draft) ──
@@ -62,6 +89,24 @@ def list_chapters(season_id: int) -> list[dict]:
                             LEFT JOIN pipeline_runs r ON r.chapter_id = ch.id
                             WHERE ch.season_id=? ORDER BY ch.idx, ch.id""", (season_id,))
         return [dict(r) for r in rows]
+
+
+def rename_chapter(cid: int, title: str) -> None:
+    with get_conn() as c:
+        c.execute("UPDATE chapters SET title=? WHERE id=?", (title, cid))
+
+
+def _wipe_chapters(c, cids: list[int]) -> None:
+    """화들과 그 종속(원고·런·자동저장·생성잡)을 제거. 같은 트랜잭션 내."""
+    for cid in cids:
+        for t in ("manuscripts", "pipeline_runs", "autosaves", "gen_jobs"):
+            c.execute(f"DELETE FROM {t} WHERE chapter_id=?", (cid,))
+        c.execute("DELETE FROM chapters WHERE id=?", (cid,))
+
+
+def delete_chapter(cid: int) -> None:
+    with get_conn() as c:
+        _wipe_chapters(c, [cid])
 
 
 def get_chapter(chapter_id: int) -> dict | None:

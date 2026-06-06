@@ -73,6 +73,39 @@ export function WriterShell() {
     await loadChapters(sid);
     openChapter(r.id);
   };
+  // ── 이름변경 / 삭제 (full CRUD) ──
+  const onRenameProject = async (p: { id: number; title: string }) => {
+    const t = window.prompt("작품 이름", p.title); if (!t?.trim()) return;
+    await api.renameProject(p.id, t.trim()); api.reloadProjects();
+  };
+  const onDelProject = async (p: { id: number; title: string }) => {
+    if (!window.confirm(`'${p.title}' 작품과 하위 시즌·화 전부 삭제할까요?`)) return;
+    await api.deleteProject(p.id);
+    if (active && active.chapter.project_id === p.id) setActive(null);
+    setExpProj((s) => { const n = new Set(s); n.delete(p.id); return n; });
+    api.reloadProjects();
+  };
+  const onRenameSeason = async (s: Season) => {
+    const t = window.prompt("시즌 이름", s.title); if (!t?.trim()) return;
+    await api.renameSeason(s.id, t.trim()); loadSeasons(s.project_id);
+  };
+  const onDelSeason = async (s: Season) => {
+    if (!window.confirm(`'${s.title}' 시즌과 하위 화를 삭제할까요?`)) return;
+    await api.deleteSeason(s.id);
+    if (active && active.chapter.season_id === s.id) setActive(null);
+    loadSeasons(s.project_id);
+  };
+  const onDelChapter = async (c: Chapter) => {
+    if (!window.confirm(`'${c.title || c.id}' 화를 삭제할까요?`)) return;
+    await api.deleteChapter(c.id);
+    if (active?.chapter.id === c.id) setActive(null);
+    loadChapters(c.season_id);
+  };
+  const saveTitle = async () => {
+    if (!active) return;
+    await api.renameChapter(active.chapter.id, active.chapter.title);
+    loadChapters(active.chapter.season_id);
+  };
 
   // 10초 무동작 자동저장
   useEffect(() => {
@@ -159,9 +192,12 @@ export function WriterShell() {
               <div className={w.row} onClick={() => toggleProject(p.id)}>
                 <span className={w.chev}>{pOpen ? "▾" : "▸"}</span>
                 <span className={w.ic}>📁</span>
-                <span className={w.name}>{p.title}</span>
+                <span className={w.name} title="더블클릭=이름변경"
+                  onDoubleClick={(e) => { e.stopPropagation(); onRenameProject(p); }}>{p.title}</span>
                 <button className={w.addBtn} title="새 시즌"
                   onClick={(e) => { e.stopPropagation(); addSeason(p.id); }}>＋</button>
+                <button className={w.delBtn} title="작품 삭제"
+                  onClick={(e) => { e.stopPropagation(); onDelProject(p); }}>🗑</button>
               </div>
               {pOpen && seasons.map((s) => {
                 const sOpen = expSeason.has(s.id);
@@ -171,9 +207,12 @@ export function WriterShell() {
                     <div className={w.row} style={{ paddingLeft: 24 }} onClick={() => toggleSeason(s.id)}>
                       <span className={w.chev}>{sOpen ? "▾" : "▸"}</span>
                       <span className={w.ic}>📂</span>
-                      <span className={w.name}>{s.title}</span>
+                      <span className={w.name} title="더블클릭=이름변경"
+                        onDoubleClick={(e) => { e.stopPropagation(); onRenameSeason(s); }}>{s.title}</span>
                       <button className={w.addBtn} title="새 화"
                         onClick={(e) => { e.stopPropagation(); addChapter(s.id); }}>＋</button>
+                      <button className={w.delBtn} title="시즌 삭제"
+                        onClick={(e) => { e.stopPropagation(); onDelSeason(s); }}>🗑</button>
                     </div>
                     {sOpen && chs.map((c) => (
                       <div key={c.id} className={w.row} data-on={active?.chapter.id === c.id}
@@ -181,6 +220,8 @@ export function WriterShell() {
                         <span className={w.ic}>📄</span>
                         <span className={w.name}>{c.title || `(${c.id})`}</span>
                         <span className={w.badge}>{c.state}</span>
+                        <button className={w.delBtn} title="화 삭제"
+                          onClick={(e) => { e.stopPropagation(); onDelChapter(c); }}>🗑</button>
                       </div>
                     ))}
                     {sOpen && !chs.length && <div className={w.empty} style={{ paddingLeft: 48 }}>화 없음 — ＋</div>}
@@ -208,7 +249,7 @@ export function WriterShell() {
 
   const editor = active && (
     <div className={w.editorWrap}>
-      <input className={w.titleInput} value={active.chapter.title}
+      <input className={w.titleInput} value={active.chapter.title} onBlur={saveTitle}
         onChange={(e) => setActive({ ...active, chapter: { ...active.chapter, title: e.target.value } })} />
       <textarea className={w.editor} value={text} onChange={(e) => setText(e.target.value)}
         placeholder="여기에 ~2000자 초안을 씁니다. 멈추면 자동 저장돼요." />

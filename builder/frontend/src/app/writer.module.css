@@ -23,6 +23,9 @@
 .row .badge { font: 600 9px/1 var(--font-mono); color: var(--text-mut); flex: none; }
 .addBtn { opacity: 0; background: none; border: none; color: var(--ember-b); cursor: pointer; font-size: 14px; line-height: 1; padding: 0 2px; flex: none; transition: opacity var(--dur) var(--ease); }
 .addBtn:hover { color: var(--ember-bright); }
+.delBtn { opacity: 0; background: none; border: none; cursor: pointer; font-size: 11px; line-height: 1; padding: 0 2px; flex: none; filter: grayscale(.3); transition: opacity var(--dur) var(--ease); }
+.row:hover .delBtn { opacity: .65; }
+.delBtn:hover { opacity: 1; filter: none; }
 .empty { padding: 4px 8px 4px 28px; color: var(--text-mut); font-size: var(--fs-xs); font-style: italic; }
 
 /* 중앙: 집필 */

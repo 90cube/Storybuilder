@@ -105,6 +105,37 @@ def new_chapter(body: ChapterIn):
     return {"id": repo.create_chapter(body.season_id, body.title, body.idx)}
 
 
+# ── rename / delete (full CRUD) ──
+@router.put("/projects/{pid}")
+def edit_project(pid: int, body: ProjectIn):
+    repo.rename_project(pid, body.title); return {"ok": True}
+
+
+@router.delete("/projects/{pid}")
+def del_project(pid: int):
+    repo.delete_project(pid); return {"ok": True}
+
+
+@router.put("/seasons/{sid}")
+def edit_season(sid: int, body: ProjectIn):
+    repo.rename_season(sid, body.title); return {"ok": True}
+
+
+@router.delete("/seasons/{sid}")
+def del_season(sid: int):
+    repo.delete_season(sid); return {"ok": True}
+
+
+@router.put("/chapters/{cid}")
+def edit_chapter(cid: int, body: ProjectIn):
+    repo.rename_chapter(cid, body.title); return {"ok": True}
+
+
+@router.delete("/chapters/{cid}")
+def del_chapter(cid: int):
+    repo.delete_chapter(cid); return {"ok": True}
+
+
 @router.get("/chapter/{chapter_id}")
 def chapter(chapter_id: int):
     ch = repo.get_chapter(chapter_id)

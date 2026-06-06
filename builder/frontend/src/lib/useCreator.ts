@@ -7,7 +7,7 @@ export type Chapter = { id: number; project_id: number; season_id: number; idx: 
 export type CanonItem = { name?: string; from?: string; rel?: string; to?: string; title?: string; description?: string; change: string };
 export type GraphEntity = { id: string; name: string; category: string; source: string; status: string };
 export type ChapterDetail = {
-  chapter: { id: number; project_id: number; title: string };
+  chapter: { id: number; project_id: number; season_id: number; title: string };
   state: string;
   texts: Record<string, { text: string; version: number }>;
 };
@@ -19,6 +19,9 @@ async function j<T>(url: string, opts?: RequestInit): Promise<T> {
 }
 const post = (url: string, body: unknown) =>
   j(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+const put = (url: string, body: unknown) =>
+  j(url, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+const del = (url: string) => j(url, { method: "DELETE" });
 
 export function useCreator() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -66,6 +69,12 @@ export function useCreator() {
   const canonPromote = useCallback((chapter_id: number, entities: CanonItem[], relations: CanonItem[]) =>
     post("/api/canon/promote", { chapter_id, entities, relations }) as Promise<{ entities: number; relations: number; state: string }>, []);
   const graphEntities = useCallback(() => j<GraphEntity[]>("/api/graph/entities"), []);
+  const renameProject = useCallback((id: number, title: string) => put(`/api/projects/${id}`, { title }), []);
+  const deleteProject = useCallback((id: number) => del(`/api/projects/${id}`), []);
+  const renameSeason = useCallback((id: number, title: string) => put(`/api/seasons/${id}`, { title }), []);
+  const deleteSeason = useCallback((id: number) => del(`/api/seasons/${id}`), []);
+  const renameChapter = useCallback((id: number, title: string) => put(`/api/chapters/${id}`, { title }), []);
+  const deleteChapter = useCallback((id: number) => del(`/api/chapters/${id}`), []);
 
-  return { projects, states, createProject, listSeasons, createSeason, listChapters, createChapter, getChapter, saveText, advance, gen, detect, assist, registerEntity, ppPolish, canonDiff, canonPromote, graphEntities };
+  return { projects, states, reloadProjects: loadProjects, createProject, listSeasons, createSeason, listChapters, createChapter, getChapter, saveText, advance, gen, detect, assist, registerEntity, ppPolish, canonDiff, canonPromote, graphEntities, renameProject, deleteProject, renameSeason, deleteSeason, renameChapter, deleteChapter };
 }
