@@ -25,10 +25,17 @@ CREATE TABLE IF NOT EXISTS projects (
   id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL,
   created_at TEXT, updated_at TEXT
 );
-CREATE TABLE IF NOT EXISTS chapters (
+-- 시즌(부) — 작품과 화 사이 계층
+CREATE TABLE IF NOT EXISTS seasons (
   id INTEGER PRIMARY KEY AUTOINCREMENT, project_id INTEGER NOT NULL,
   idx INTEGER DEFAULT 0, title TEXT,
   FOREIGN KEY (project_id) REFERENCES projects(id)
+);
+CREATE TABLE IF NOT EXISTS chapters (
+  id INTEGER PRIMARY KEY AUTOINCREMENT, project_id INTEGER NOT NULL,
+  season_id INTEGER, idx INTEGER DEFAULT 0, title TEXT,
+  FOREIGN KEY (project_id) REFERENCES projects(id),
+  FOREIGN KEY (season_id) REFERENCES seasons(id)
 );
 -- kind: draft | polish | expand | final
 CREATE TABLE IF NOT EXISTS manuscripts (
@@ -51,6 +58,8 @@ CREATE TABLE IF NOT EXISTS gen_jobs (
   status TEXT DEFAULT 'pending', result_id INTEGER
 );
 
+CREATE INDEX IF NOT EXISTS ix_seasons_project ON seasons(project_id);
 CREATE INDEX IF NOT EXISTS ix_chapters_project ON chapters(project_id);
+-- ix_chapters_season은 season_id 컬럼 마이그레이션 후 _migrate에서 생성
 CREATE INDEX IF NOT EXISTS ix_manuscripts_chapter ON manuscripts(chapter_id);
 CREATE INDEX IF NOT EXISTS ix_autosaves_chapter ON autosaves(chapter_id);

@@ -9,12 +9,14 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-# ── projects ──
+# ── projects (+ 기본 시즌) ──
 def create_project(title: str) -> int:
     with get_conn() as c:
         cur = c.execute("INSERT INTO projects(title,created_at,updated_at) VALUES(?,?,?)",
                         (title, _now(), _now()))
-        return cur.lastrowid
+        pid = cur.lastrowid
+        c.execute("INSERT INTO seasons(project_id,idx,title) VALUES(?,1,'시즌 1')", (pid,))
+        return pid
 
 
 def list_projects() -> list[dict]:
@@ -22,11 +24,30 @@ def list_projects() -> list[dict]:
         return [dict(r) for r in c.execute("SELECT * FROM projects ORDER BY updated_at DESC")]
 
 
-# ── chapters (+ 초기 run/draft) ──
-def create_chapter(project_id: int, title: str = "", idx: int = 0) -> int:
+# ── seasons ──
+def create_season(project_id: int, title: str = "", idx: int = 0) -> int:
     with get_conn() as c:
-        cur = c.execute("INSERT INTO chapters(project_id,idx,title) VALUES(?,?,?)",
-                        (project_id, idx, title))
+        nxt = c.execute("SELECT COALESCE(MAX(idx),0)+1 v FROM seasons WHERE project_id=?",
+                        (project_id,)).fetchone()["v"]
+        cur = c.execute("INSERT INTO seasons(project_id,idx,title) VALUES(?,?,?)",
+                        (project_id, idx or nxt, title or f"시즌 {nxt}"))
+        return cur.lastrowid
+
+
+def list_seasons(project_id: int) -> list[dict]:
+    with get_conn() as c:
+        return [dict(r) for r in c.execute(
+            "SELECT * FROM seasons WHERE project_id=? ORDER BY idx,id", (project_id,))]
+
+
+# ── chapters (시즌 소속, + 초기 run/draft) ──
+def create_chapter(season_id: int, title: str = "", idx: int = 0) -> int:
+    with get_conn() as c:
+        s = c.execute("SELECT project_id FROM seasons WHERE id=?", (season_id,)).fetchone()
+        if not s:
+            raise ValueError("season not found")
+        cur = c.execute("INSERT INTO chapters(project_id,season_id,idx,title) VALUES(?,?,?,?)",
+                        (s["project_id"], season_id, idx, title))
         cid = cur.lastrowid
         c.execute("INSERT INTO pipeline_runs(chapter_id,state,updated_at) VALUES(?,?,?)",
                   (cid, "DRAFT", _now()))
@@ -35,11 +56,11 @@ def create_chapter(project_id: int, title: str = "", idx: int = 0) -> int:
         return cid
 
 
-def list_chapters(project_id: int) -> list[dict]:
+def list_chapters(season_id: int) -> list[dict]:
     with get_conn() as c:
         rows = c.execute("""SELECT ch.*, r.state FROM chapters ch
                             LEFT JOIN pipeline_runs r ON r.chapter_id = ch.id
-                            WHERE ch.project_id=? ORDER BY ch.idx, ch.id""", (project_id,))
+                            WHERE ch.season_id=? ORDER BY ch.idx, ch.id""", (season_id,))
         return [dict(r) for r in rows]
 
 

@@ -17,7 +17,24 @@ def get_conn() -> sqlite3.Connection:
 
 
 def init_db() -> None:
-    """스키마를 (없으면) 생성한다. 앱 기동 시 1회."""
+    """스키마를 (없으면) 생성하고 마이그레이션. 앱 기동 시 1회."""
     CREATOR_DB.parent.mkdir(parents=True, exist_ok=True)
     with get_conn() as conn:
         conn.executescript(_SCHEMA.read_text(encoding="utf-8"))
+        _migrate(conn)
+
+
+def _migrate(conn) -> None:
+    """기존 DB: chapters.season_id 추가 + 프로젝트별 기본 '시즌 1' 백필."""
+    cols = [r["name"] for r in conn.execute("PRAGMA table_info(chapters)")]
+    if "season_id" not in cols:
+        conn.execute("ALTER TABLE chapters ADD COLUMN season_id INTEGER")
+    conn.execute("CREATE INDEX IF NOT EXISTS ix_chapters_season ON chapters(season_id)")
+    for p in conn.execute("SELECT id FROM projects").fetchall():
+        pid = p["id"]
+        s = conn.execute("SELECT id FROM seasons WHERE project_id=? ORDER BY idx,id LIMIT 1",
+                         (pid,)).fetchone()
+        sid = s["id"] if s else conn.execute(
+            "INSERT INTO seasons(project_id,idx,title) VALUES(?,1,'시즌 1')", (pid,)).lastrowid
+        conn.execute("UPDATE chapters SET season_id=? WHERE project_id=? AND season_id IS NULL",
+                     (sid, pid))

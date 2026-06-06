@@ -2,7 +2,8 @@
 import { useCallback, useEffect, useState } from "react";
 
 export type Project = { id: number; title: string };
-export type Chapter = { id: number; project_id: number; idx: number; title: string; state: string };
+export type Season = { id: number; project_id: number; idx: number; title: string };
+export type Chapter = { id: number; project_id: number; season_id: number; idx: number; title: string; state: string };
 export type CanonItem = { name?: string; from?: string; rel?: string; to?: string; title?: string; description?: string; change: string };
 export type GraphEntity = { id: string; name: string; category: string; source: string; status: string };
 export type ChapterDetail = {
@@ -32,10 +33,14 @@ export function useCreator() {
     await post("/api/projects", { title }); await loadProjects();
   }, [loadProjects]);
 
-  const listChapters = useCallback((projectId: number) =>
-    j<Chapter[]>(`/api/chapters?project=${projectId}`), []);
-  const createChapter = useCallback((projectId: number, title: string) =>
-    post("/api/chapters", { project_id: projectId, title }), []);
+  const listSeasons = useCallback((projectId: number) =>
+    j<Season[]>(`/api/seasons?project=${projectId}`), []);
+  const createSeason = useCallback((projectId: number, title = "") =>
+    post("/api/seasons", { project_id: projectId, title }), []);
+  const listChapters = useCallback((seasonId: number) =>
+    j<Chapter[]>(`/api/chapters?season=${seasonId}`), []);
+  const createChapter = useCallback((seasonId: number, title: string) =>
+    post("/api/chapters", { season_id: seasonId, title }), []);
   const getChapter = useCallback(async (id: number) => {
     const d = await j<ChapterDetail>(`/api/chapter/${id}`);
     const r = await j<{ states: string[] }>(`/api/chapter/${id}/run`);
@@ -62,5 +67,5 @@ export function useCreator() {
     post("/api/canon/promote", { chapter_id, entities, relations }) as Promise<{ entities: number; relations: number; state: string }>, []);
   const graphEntities = useCallback(() => j<GraphEntity[]>("/api/graph/entities"), []);
 
-  return { projects, states, createProject, listChapters, createChapter, getChapter, saveText, advance, gen, detect, assist, registerEntity, ppPolish, canonDiff, canonPromote, graphEntities };
+  return { projects, states, createProject, listSeasons, createSeason, listChapters, createChapter, getChapter, saveText, advance, gen, detect, assist, registerEntity, ppPolish, canonDiff, canonPromote, graphEntities };
 }

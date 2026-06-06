@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Badge, Button, Input, Panel, Spinner } from "../components/primitives";
 import { AspectLayout, ResizableSplit, StatusBar, Titlebar } from "../components/shell";
-import { useCreator, type Chapter, type ChapterDetail, type CanonItem, type GraphEntity } from "../lib/useCreator";
+import { useCreator, type Season, type Chapter, type ChapterDetail, type CanonItem, type GraphEntity } from "../lib/useCreator";
 import { CHAPTER_AUTOSAVE_MS, DRAFT_TARGET_CHARS } from "../lib/const";
 import w from "./writer.module.css";
 
@@ -13,8 +13,10 @@ const TOGGLES: { mode: string; label: string }[] = [
 
 export function WriterShell() {
   const api = useCreator();
-  const [expanded, setExpanded] = useState<Set<number>>(new Set());
-  const [chByProj, setChByProj] = useState<Record<number, Chapter[]>>({});
+  const [expProj, setExpProj] = useState<Set<number>>(new Set());
+  const [expSeason, setExpSeason] = useState<Set<number>>(new Set());
+  const [seasonsByProj, setSeasonsByProj] = useState<Record<number, Season[]>>({});
+  const [chBySeason, setChBySeason] = useState<Record<number, Chapter[]>>({});
   const [active, setActive] = useState<ChapterDetail | null>(null);
   const [text, setText] = useState("");
   const [saved, setSaved] = useState<string>("");
@@ -29,33 +31,46 @@ export function WriterShell() {
   const refreshDb = useCallback(async () => { try { setDbEnts(await api.graphEntities()); } catch { /* */ } }, [api.graphEntities]);
   useEffect(() => { refreshDb(); }, [refreshDb]);
 
-  const loadChapters = useCallback(async (pid: number) => {
-    const cs = await api.listChapters(pid);
-    setChByProj((m) => ({ ...m, [pid]: cs }));
+  const loadSeasons = useCallback(async (pid: number) => {
+    const ss = await api.listSeasons(pid);
+    setSeasonsByProj((m) => ({ ...m, [pid]: ss }));
+  }, [api.listSeasons]);
+  const loadChapters = useCallback(async (sid: number) => {
+    const cs = await api.listChapters(sid);
+    setChBySeason((m) => ({ ...m, [sid]: cs }));
   }, [api.listChapters]);
-  const toggleProject = (pid: number) => setExpanded((s) => {
+  const toggleProject = (pid: number) => setExpProj((s) => {
     const n = new Set(s);
-    if (n.has(pid)) n.delete(pid);
-    else { n.add(pid); loadChapters(pid); }
+    if (n.has(pid)) n.delete(pid); else { n.add(pid); loadSeasons(pid); }
+    return n;
+  });
+  const toggleSeason = (sid: number) => setExpSeason((s) => {
+    const n = new Set(s);
+    if (n.has(sid)) n.delete(sid); else { n.add(sid); loadChapters(sid); }
     return n;
   });
   // 첫 프로젝트 자동 펼침
   useEffect(() => {
-    if (api.projects.length && expanded.size === 0) {
+    if (api.projects.length && expProj.size === 0) {
       const pid = api.projects[0].id;
-      setExpanded(new Set([pid])); loadChapters(pid);
+      setExpProj(new Set([pid])); loadSeasons(pid);
     }
-  }, [api.projects, expanded.size, loadChapters]);
+  }, [api.projects, expProj.size, loadSeasons]);
 
   const openChapter = async (id: number) => {
     const d = await api.getChapter(id);
     setActive(d); setText(d.texts.draft?.text ?? ""); setSaved("불러옴");
     setCands(null); setCanon(null); setResult(null);
   };
-  const addChapter = async (pid: number) => {
-    const r = await api.createChapter(pid, "새 화") as { id: number };
-    setExpanded((s) => new Set(s).add(pid));
-    await loadChapters(pid);
+  const addSeason = async (pid: number) => {
+    await api.createSeason(pid);
+    setExpProj((s) => new Set(s).add(pid));
+    await loadSeasons(pid);
+  };
+  const addChapter = async (sid: number) => {
+    const r = await api.createChapter(sid, "새 화") as { id: number };
+    setExpSeason((s) => new Set(s).add(sid));
+    await loadChapters(sid);
     openChapter(r.id);
   };
 
@@ -137,26 +152,42 @@ export function WriterShell() {
       </div>
       <div className={w.tree}>
         {api.projects.map((p) => {
-          const open = expanded.has(p.id);
-          const chs = chByProj[p.id] ?? [];
+          const pOpen = expProj.has(p.id);
+          const seasons = seasonsByProj[p.id] ?? [];
           return (
             <div key={p.id}>
               <div className={w.row} onClick={() => toggleProject(p.id)}>
-                <span className={w.chev}>{open ? "▾" : "▸"}</span>
+                <span className={w.chev}>{pOpen ? "▾" : "▸"}</span>
                 <span className={w.ic}>📁</span>
                 <span className={w.name}>{p.title}</span>
-                <button className={w.addBtn} title="새 화 추가"
-                  onClick={(e) => { e.stopPropagation(); addChapter(p.id); }}>＋</button>
+                <button className={w.addBtn} title="새 시즌"
+                  onClick={(e) => { e.stopPropagation(); addSeason(p.id); }}>＋</button>
               </div>
-              {open && chs.map((c) => (
-                <div key={c.id} className={w.row} data-on={active?.chapter.id === c.id}
-                  style={{ paddingLeft: 28 }} onClick={() => openChapter(c.id)}>
-                  <span className={w.ic}>📄</span>
-                  <span className={w.name}>{c.title || `(${c.id})`}</span>
-                  <span className={w.badge}>{c.state}</span>
-                </div>
-              ))}
-              {open && !chs.length && <div className={w.empty}>화 없음 — ＋로 추가</div>}
+              {pOpen && seasons.map((s) => {
+                const sOpen = expSeason.has(s.id);
+                const chs = chBySeason[s.id] ?? [];
+                return (
+                  <div key={s.id}>
+                    <div className={w.row} style={{ paddingLeft: 24 }} onClick={() => toggleSeason(s.id)}>
+                      <span className={w.chev}>{sOpen ? "▾" : "▸"}</span>
+                      <span className={w.ic}>📂</span>
+                      <span className={w.name}>{s.title}</span>
+                      <button className={w.addBtn} title="새 화"
+                        onClick={(e) => { e.stopPropagation(); addChapter(s.id); }}>＋</button>
+                    </div>
+                    {sOpen && chs.map((c) => (
+                      <div key={c.id} className={w.row} data-on={active?.chapter.id === c.id}
+                        style={{ paddingLeft: 48 }} onClick={() => openChapter(c.id)}>
+                        <span className={w.ic}>📄</span>
+                        <span className={w.name}>{c.title || `(${c.id})`}</span>
+                        <span className={w.badge}>{c.state}</span>
+                      </div>
+                    ))}
+                    {sOpen && !chs.length && <div className={w.empty} style={{ paddingLeft: 48 }}>화 없음 — ＋</div>}
+                  </div>
+                );
+              })}
+              {pOpen && !seasons.length && <div className={w.empty}>시즌 없음 — ＋</div>}
             </div>
           );
         })}

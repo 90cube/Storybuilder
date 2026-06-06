@@ -18,8 +18,13 @@ class ProjectIn(BaseModel):
     title: str
 
 
-class ChapterIn(BaseModel):
+class SeasonIn(BaseModel):
     project_id: int
+    title: str = ""
+
+
+class ChapterIn(BaseModel):
+    season_id: int
     title: str = ""
     idx: int = 0
 
@@ -80,14 +85,24 @@ def new_project(body: ProjectIn):
     return {"id": repo.create_project(body.title)}
 
 
+@router.get("/seasons")
+def seasons(project: int):
+    return repo.list_seasons(project)
+
+
+@router.post("/seasons")
+def new_season(body: SeasonIn):
+    return {"id": repo.create_season(body.project_id, body.title)}
+
+
 @router.get("/chapters")
-def chapters(project: int):
-    return repo.list_chapters(project)
+def chapters(season: int):
+    return repo.list_chapters(season)
 
 
 @router.post("/chapters")
 def new_chapter(body: ChapterIn):
-    return {"id": repo.create_chapter(body.project_id, body.title, body.idx)}
+    return {"id": repo.create_chapter(body.season_id, body.title, body.idx)}
 
 
 @router.get("/chapter/{chapter_id}")
