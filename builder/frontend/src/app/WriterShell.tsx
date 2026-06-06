@@ -3,7 +3,16 @@ import { Badge, Button, Input, Panel, Spinner, Toggle } from "../components/prim
 import { AspectLayout, ResizableSplit, StatusBar, Titlebar } from "../components/shell";
 import { useCreator, type Season, type Chapter, type ChapterDetail, type CanonItem, type GraphEntity } from "../lib/useCreator";
 import { CHAPTER_AUTOSAVE_MS, DRAFT_TARGET_CHARS, ANALYZE_DEBOUNCE_MS } from "../lib/const";
+import { EntityEditor } from "./EntityEditor";
+import { LaneCanvas } from "./LaneCanvas";
 import w from "./writer.module.css";
+
+type CenterMode = "write" | "entities" | "canvas";
+const CENTER_TABS: { mode: CenterMode; label: string }[] = [
+  { mode: "write", label: "✍ 집필" },
+  { mode: "entities", label: "◆ 엔티티" },
+  { mode: "canvas", label: "⌥ 인과 캔버스" },
+];
 
 const TOGGLES: { mode: string; label: string }[] = [
   { mode: "draft", label: "초안→초안" },
@@ -29,6 +38,7 @@ export function WriterShell() {
   const [dbEnts, setDbEnts] = useState<GraphEntity[]>([]);
   const [analysis, setAnalysis] = useState<{ events: CanonItem[]; entities: CanonItem[]; relations: CanonItem[] } | null>(null);
   const [autoAnalyze, setAutoAnalyze] = useState(false);
+  const [centerMode, setCenterMode] = useState<CenterMode>("write");
   const timer = useRef<number>(0);
   const aTimer = useRef<number>(0);
   const textRef = useRef<string>("");
@@ -380,9 +390,25 @@ export function WriterShell() {
       </div>
     </div>
   );
-  const center = !active
+  const writeCenter = !active
     ? <div className={w.placeholder}>좌측에서 화를 열거나 새로 만드세요.</div>
     : (canon ? canonPanel : (cands ? charPanel : (result ? diff : editor)));
+  const centerInner = centerMode === "entities"
+    ? <EntityEditor api={api} onChanged={refreshDb} />
+    : centerMode === "canvas"
+      ? <LaneCanvas api={api} chapterId={active?.chapter.id ?? null} />
+      : writeCenter;
+  const center = (
+    <div className={w.centerWrap}>
+      <div className={w.centerTabs}>
+        {CENTER_TABS.map((t) => (
+          <button key={t.mode} className={w.centerTab} data-on={centerMode === t.mode}
+            onClick={() => setCenterMode(t.mode)}>{t.label}</button>
+        ))}
+      </div>
+      <div className={w.centerInner}>{centerInner}</div>
+    </div>
+  );
 
   const right = (
     <div className={w.rail}>

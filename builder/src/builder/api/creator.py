@@ -333,8 +333,9 @@ def schema():
     }
 
 
-@router.get("/entities")
+@router.get("/typed-entities")
 def entities_by_type(type: str):
+    """타입별 엔티티 목록(에디터 폼용). /api/entities(인물 피커, app.py)와 구분."""
     return entity.list_by_type(type)
 
 

@@ -28,6 +28,15 @@
 .delBtn:hover { opacity: 1; filter: none; }
 .empty { padding: 4px 8px 4px 28px; color: var(--text-mut); font-size: var(--fs-xs); font-style: italic; }
 
+/* 중앙: 모드 전환(집필/엔티티/캔버스) */
+.centerWrap { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.centerTabs { display: flex; gap: 2px; padding: 6px 10px 0; border-bottom: 1px solid var(--line); flex: none; }
+.centerTab { background: none; border: none; border-bottom: 2px solid transparent; color: var(--text-mut); cursor: pointer;
+  font: 600 var(--fs-sm)/1 var(--font-mono); padding: 8px 12px; }
+.centerTab:hover { color: var(--text); }
+.centerTab[data-on="true"] { color: var(--ember-b); border-bottom-color: var(--ember); }
+.centerInner { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+
 /* 중앙: 집필 */
 .editorWrap { display: flex; flex-direction: column; height: 100%; min-height: 0; padding: 0; }
 .titleInput { background: transparent; border: none; border-bottom: 1px solid var(--line); color: #fff; font: 600 var(--fs-lg)/1.4 var(--font-display); padding: 14px 20px; outline: none; }
@@ -89,3 +98,44 @@
 .step[data-toggle="true"] .dot { box-shadow: 0 0 0 2px var(--ember-d); }
 .toggles { display: flex; flex-direction: column; gap: 6px; }
 .toggles .lbl { font: 600 var(--fs-xs)/1 var(--font-mono); color: var(--text-mut); text-transform: uppercase; letter-spacing: .1em; }
+
+/* 엔티티 편집기 (에디터 흡수) */
+.entWrap { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.entTabs { display: flex; gap: 2px; align-items: center; padding: 6px 12px; border-bottom: 1px solid var(--line); flex: none; }
+.entTab { background: none; border: 1px solid transparent; border-radius: 5px; color: var(--text-mut); cursor: pointer;
+  font: 500 var(--fs-sm)/1 var(--font-body); padding: 5px 10px; }
+.entTab:hover { background: var(--ink-750); color: var(--text); }
+.entTab[data-on="true"] { background: var(--ember-glow); color: var(--ember-b); border-color: var(--ember-d); }
+.entLink { font: 500 var(--fs-xs)/1 var(--font-mono); color: var(--arcane); text-decoration: none; padding: 4px 8px; border: 1px solid var(--line-2); border-radius: 5px; }
+.entLink:hover { color: var(--ember-b); border-color: var(--ember-d); }
+.entBody { flex: 1; min-height: 0; display: grid; grid-template-columns: 200px 1fr; }
+.entList { min-height: 0; overflow: auto; border-right: 1px solid var(--line); padding: 8px; display: flex; flex-direction: column; gap: 3px; }
+.entRow { display: flex; align-items: center; gap: 6px; padding: 5px 8px; border-radius: 5px; cursor: pointer; border-left: 2px solid transparent; }
+.entRow:hover { background: var(--ink-750); }
+.entRow[data-on="true"] { background: var(--ink-700); border-left-color: var(--ember); }
+.entForm { min-height: 0; overflow: auto; padding: 14px 18px; }
+.entFormHead { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; color: #fff; font-size: var(--fs-md); }
+.entErr { background: var(--blood-glow, rgba(200,60,60,.12)); color: var(--blood, #e06); border: 1px solid var(--blood, #e06); border-radius: 6px; padding: 8px 10px; font-size: var(--fs-sm); margin-bottom: 10px; }
+.entMsg { color: var(--jade); font-size: var(--fs-sm); margin-bottom: 10px; }
+.efRow { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 10px; }
+.efLbl { flex: 0 0 90px; padding-top: 6px; color: var(--text-dim); font-size: var(--fs-sm); }
+.efInput { flex: 1; background: var(--ink-800, #1a1a22); border: 1px solid var(--line-2); border-radius: 6px; color: var(--text);
+  font: 400 var(--fs-sm)/1.6 var(--font-body); padding: 6px 9px; outline: none; resize: vertical; }
+.efInput:focus { border-color: var(--ember-d); }
+.entSub { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 10px; }
+.entSubH { font: 600 var(--fs-xs)/1 var(--font-mono); color: var(--arcane); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 6px; }
+.entSubRow { padding: 4px 8px; font-size: var(--fs-sm); color: var(--text); background: var(--ink-750); border-radius: 5px; margin-bottom: 3px; }
+.entSubAdd { display: flex; gap: 6px; margin-top: 6px; }
+
+/* 레인 삽입 캔버스 (빌더 기능1 흡수) */
+.laneWrap { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.laneBar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--line); flex: none; }
+.laneChips { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding: 6px 12px; flex: none; }
+.lanePicker { flex: 0 0 38%; min-height: 0; overflow: auto; border-bottom: 1px solid var(--line); }
+.laneCanvas { position: relative; flex: 1 1 auto; min-height: 120px; }
+.laneView { position: absolute; top: 8px; right: 8px; z-index: 2; background: var(--ink-700); border: 1px solid var(--line-2); border-radius: 5px;
+  color: var(--text-dim); cursor: pointer; font: 500 var(--fs-xs)/1 var(--font-mono); padding: 5px 9px; }
+.laneView:hover { color: var(--ember-b); }
+.laneStories { flex: 0 0 34%; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; }
+.lanePane { min-height: 0; overflow: auto; border-right: 1px solid var(--line); border-top: 1px solid var(--line); }
+.lanePane:last-child { border-right: none; }
