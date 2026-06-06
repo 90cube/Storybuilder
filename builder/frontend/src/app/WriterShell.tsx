@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Badge, Button, Input, Panel } from "../components/primitives";
+import { Badge, Button, Input, Panel, Spinner } from "../components/primitives";
 import { AspectLayout, ResizableSplit, StatusBar, Titlebar } from "../components/shell";
 import { useCreator, type Chapter, type ChapterDetail } from "../lib/useCreator";
 import { CHAPTER_AUTOSAVE_MS, DRAFT_TARGET_CHARS } from "../lib/const";
@@ -20,6 +20,10 @@ export function WriterShell() {
   const [saved, setSaved] = useState<string>("");
   const [newProj, setNewProj] = useState("");
   const [newChap, setNewChap] = useState("");
+  const [busy, setBusy] = useState<string>("");
+  const [result, setResult] = useState<{ kind: string; text: string } | null>(null);
+  const [cands, setCands] = useState<{ name: string; description?: string }[] | null>(null);
+  const [cards, setCards] = useState<Record<string, { description: string; speech_style: string; relations: string[] }>>({});
   const timer = useRef<number>(0);
 
   const refreshChapters = useCallback(async (pid: number) => {
@@ -48,11 +52,40 @@ export function WriterShell() {
   }, [text, active, api]);
 
   const onToggle = async (mode: string) => {
+    if (!active || busy) return;
+    setBusy(mode); setResult(null);
+    try {
+      const r = await api.gen(active.chapter.id, mode);
+      setResult({ kind: r.kind, text: r.text });
+      setActive({ ...active, state: r.state });
+    } catch (e) { alert("생성 실패: " + (e as Error).message); }
+    finally { setBusy(""); }
+  };
+  const accept = async () => {
+    if (!active || !result) return;
+    setText(result.text);
+    await api.saveText(active.chapter.id, result.text);
+    setResult(null); setSaved(new Date().toLocaleTimeString());
+  };
+  const onDetect = async () => {
+    if (!active || busy) return;
+    setBusy("detect");
+    try { const r = await api.detect(active.chapter.id); setCands(r.candidates); setActive({ ...active, state: r.state }); }
+    catch (e) { alert("감지 실패: " + (e as Error).message); }
+    finally { setBusy(""); }
+  };
+  const onAssist = async (name: string) => {
+    setBusy("assist:" + name);
+    try { const c = await api.assist(name, ""); setCards((p) => ({ ...p, [name]: c })); }
+    catch (e) { alert("보조 실패: " + (e as Error).message); }
+    finally { setBusy(""); }
+  };
+  const onRegister = async (name: string) => {
     if (!active) return;
-    // M3에서 실제 생성 연결. 지금은 FSM 상태만 전이(다듬기/완성본).
-    const to = mode === "expand" ? "EXPAND" : "POLISH";
-    try { await api.advance(active.chapter.id, to); await openChapter(active.chapter.id); }
-    catch { /* 전이 불가 무시 */ }
+    const c = cards[name];
+    await api.registerEntity({ name, category: "character", description: c?.description ?? "", speech_style: c?.speech_style ?? "", relations: c?.relations ?? [] }, active.chapter.id);
+    setCands((cs) => cs?.filter((x) => x.name !== name) ?? null);
+    setActive((a) => a && { ...a, state: "DB_SYNC" });
   };
 
   const over = text.length > DRAFT_TARGET_CHARS;
@@ -90,7 +123,7 @@ export function WriterShell() {
     </Panel>
   );
 
-  const center = active ? (
+  const editor = active && (
     <div className={w.editorWrap}>
       <input className={w.titleInput} value={active.chapter.title}
         onChange={(e) => setActive({ ...active, chapter: { ...active.chapter, title: e.target.value } })} />
@@ -101,7 +134,50 @@ export function WriterShell() {
         <span className={w.savedBadge}><Badge tone="jade">저장: {saved || "—"}</Badge></span>
       </div>
     </div>
-  ) : <div className={w.placeholder}>좌측에서 화를 열거나 새로 만드세요.</div>;
+  );
+  const diff = active && result && (
+    <div className={w.editorWrap}>
+      <div className={w.diffHead}>
+        <span>생성 결과 · {result.kind} ({result.text.length}자)</span>
+        <span style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+          <Button variant="primary" onClick={accept}>채택 (초안에 반영)</Button>
+          <Button variant="ghost" onClick={() => setResult(null)}>닫기</Button>
+        </span>
+      </div>
+      <div className={w.diffGrid}>
+        <div className={w.diffPane}><div className={w.paneLbl}>원안</div><pre className={w.prose}>{text || "(빈 초안)"}</pre></div>
+        <div className={w.diffPane}><div className={w.paneLbl}>결과</div><pre className={w.prose}>{result.text}</pre></div>
+      </div>
+    </div>
+  );
+  const charPanel = active && cands && (
+    <div className={w.editorWrap}>
+      <div className={w.diffHead}>
+        <span>신규 캐릭터 감지 · {cands.length}명 (CHAR_DETECT)</span>
+        <span style={{ marginLeft: "auto" }}><Button variant="ghost" onClick={() => setCands(null)}>닫기</Button></span>
+      </div>
+      <div className={w.charList}>
+        {cands.length === 0 && <div className={w.placeholder} style={{ height: "auto", padding: 24 }}>새 캐릭터 없음 — 본문에서 기존 외 인물을 못 찾음</div>}
+        {cands.map((c) => (
+          <div key={c.name} className={w.charItem}>
+            <div className={w.charHead}>
+              <b>{c.name}</b>
+              <span style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+                <Button disabled={busy === "assist:" + c.name} onClick={() => onAssist(c.name)}>
+                  {busy === "assist:" + c.name ? <><Spinner /> …</> : "보조 생성"}</Button>
+                <Button variant="primary" onClick={() => onRegister(c.name)}>DB 등록</Button>
+              </span>
+            </div>
+            <div className={w.charDesc}>{cards[c.name]?.description || c.description || "(설명 없음 — 보조 생성으로 세계관 맞춰 채우기)"}</div>
+            {cards[c.name]?.speech_style && <div className={w.charMeta}>말투: {cards[c.name].speech_style}</div>}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+  const center = !active
+    ? <div className={w.placeholder}>좌측에서 화를 열거나 새로 만드세요.</div>
+    : (cands ? charPanel : (result ? diff : editor));
 
   const right = (
     <div className={w.rail}>
@@ -118,8 +194,14 @@ export function WriterShell() {
         <span className={w.lbl}>생성</span>
         {TOGGLES.map((t) => (
           <Button key={t.mode} variant={t.mode === "polish" ? "primary" : "default"}
-            disabled={!active} onClick={() => onToggle(t.mode)}>{t.label}</Button>
+            disabled={!active || !!busy} onClick={() => onToggle(t.mode)}>
+            {busy === t.mode ? <><Spinner /> 생성 중…</> : t.label}
+          </Button>
         ))}
+        <span className={w.lbl} style={{ marginTop: 6 }}>구조화</span>
+        <Button disabled={!active || !!busy} onClick={onDetect}>
+          {busy === "detect" ? <><Spinner /> 감지 중…</> : "캐릭터 감지"}
+        </Button>
       </div>
     </div>
   );

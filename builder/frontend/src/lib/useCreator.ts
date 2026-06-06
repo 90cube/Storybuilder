@@ -44,6 +44,14 @@ export function useCreator() {
     j(`/api/chapter/${id}/text`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }) }), []);
   const advance = useCallback((id: number, to_state: string) =>
     post(`/api/run/${id}/advance`, { to_state }), []);
+  const gen = useCallback((chapter_id: number, mode: string, system?: string) =>
+    post("/api/gen", { chapter_id, mode, system }) as Promise<{ kind: string; text: string; state: string }>, []);
+  const detect = useCallback((chapter_id: number) =>
+    post(`/api/detect/${chapter_id}`, {}) as Promise<{ candidates: { name: string; description?: string }[]; state: string }>, []);
+  const assist = useCallback((name: string, context: string) =>
+    post("/api/chars/assist", { name, context }) as Promise<{ name: string; category: string; description: string; speech_style: string; relations: string[] }>, []);
+  const registerEntity = useCallback((entity: Record<string, unknown>, chapter_id: number) =>
+    post(`/api/graph/entity?chapter_id=${chapter_id}`, entity) as Promise<{ id: string }>, []);
 
-  return { projects, states, createProject, listChapters, createChapter, getChapter, saveText, advance };
+  return { projects, states, createProject, listChapters, createChapter, getChapter, saveText, advance, gen, detect, assist, registerEntity };
 }

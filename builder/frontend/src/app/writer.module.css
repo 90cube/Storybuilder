@@ -24,6 +24,21 @@
 .savedBadge { margin-left: auto; }
 .placeholder { display: grid; place-items: center; height: 100%; color: var(--text-mut); font-style: italic; }
 
+/* 생성 결과 diff */
+.diffHead { display: flex; align-items: center; gap: var(--sp-2); padding: 10px 16px; border-bottom: 1px solid var(--line); font: 600 var(--fs-sm)/1 var(--font-body); color: var(--ember-b); }
+.diffGrid { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; }
+.diffPane { min-height: 0; overflow: auto; border-right: 1px solid var(--line); padding: 0 0 12px; }
+.diffPane:last-child { border-right: none; }
+.paneLbl { position: sticky; top: 0; background: var(--ink-850); padding: 6px 16px; font: 600 var(--fs-xs)/1 var(--font-mono); color: var(--text-mut); border-bottom: 1px solid var(--line); }
+.prose { margin: 0; padding: 12px 16px; white-space: pre-wrap; word-break: break-word; font: 400 14px/1.8 var(--font-body); color: var(--text); }
+
+/* 캐릭터 감지 패널 */
+.charList { flex: 1; min-height: 0; overflow: auto; padding: 12px 16px; display: flex; flex-direction: column; gap: 10px; }
+.charItem { background: var(--ink-750); border: 1px solid var(--line-2); border-radius: 8px; padding: 12px 14px; }
+.charHead { display: flex; align-items: center; gap: 8px; color: #fff; font-size: var(--fs-md); }
+.charDesc { color: var(--text-dim); font-size: var(--fs-sm); line-height: 1.7; margin-top: 6px; }
+.charMeta { color: var(--ember-b); font-size: var(--fs-xs); font-family: var(--font-mono); margin-top: 6px; }
+
 /* 우: 파이프라인 레일 */
 .rail { display: flex; flex-direction: column; height: 100%; min-height: 0; padding: var(--sp-3); gap: var(--sp-3); }
 .railTitle { font: 600 var(--fs-xs)/1 var(--font-mono); color: var(--text-mut); text-transform: uppercase; letter-spacing: .1em; }
