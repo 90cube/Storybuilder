@@ -5,6 +5,8 @@ from pathlib import Path
 # 저장소 루트 기준 절대 경로 (const.py = builder/src/builder/const.py).
 REPO_ROOT = Path(__file__).resolve().parents[3]
 CORPUS_DIR = REPO_ROOT / "corpus"
+# editor(Go 도구)의 스키마 정의를 Creator가 그대로 읽어 타입 폼·검증을 만든다(단일 진실원).
+SCHEMA_DIR = REPO_ROOT / "editor" / "schema"
 EVENT_CHAIN = CORPUS_DIR / "event_chain.json"
 CHARACTER_MASTER = CORPUS_DIR / "character_master.json"
 DRAFTS_DIR = REPO_ROOT / "builder" / "drafts"

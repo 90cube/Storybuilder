@@ -1,9 +1,10 @@
 """Creator API 라우터: 프로젝트·화·원고·자동저장·파이프라인 전이. 라우팅만(로직은 store/domain)."""
 
-from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from fastapi import APIRouter, HTTPException, Response
+from pydantic import BaseModel, Field
 
-from builder.store import repo, graph
+from builder.store import repo, graph, entity, export
+from builder.schemadef import loader
 from builder.domain import pipeline
 from builder.gen import modes
 from builder.extract import service as extract_svc
@@ -66,6 +67,34 @@ class PromoteIn(BaseModel):
     chapter_id: int
     entities: list[dict] = []
     relations: list[dict] = []
+
+
+# ── 에디터 흡수: 스키마주도 엔티티 편집 ──
+class EntitySaveIn(BaseModel):
+    type: str
+    data: dict
+    expected_version: int | None = None
+
+
+class RelationIn(BaseModel):
+    from_name: str = Field(alias="from")
+    rel: str
+    to_name: str = Field(alias="to")
+
+    model_config = {"populate_by_name": True}
+
+
+class TimelineIn(BaseModel):
+    era: str = ""
+    state: str = ""
+    note: str = ""
+    seq: int = 0
+
+
+class SecretIn(BaseModel):
+    fact: str
+    known_by: list = []
+    reveal_at: str = ""
 
 
 def _final_text(ch: dict) -> str:
@@ -287,3 +316,90 @@ def graph_entity(body: EntityIn, chapter_id: int | None = None):
             if pipeline.can_advance(repo.get_state(chapter_id), s):
                 repo.set_state(chapter_id, s)
     return {"id": eid}
+
+
+# ── 에디터 흡수: 스키마·타입 폼·관계·타임라인·비밀·내보내기·편집로그 ──
+@router.get("/schema")
+def schema():
+    """타입 정의(폼 필드·필수)와 역관계 레지스트리 — 프론트가 폼을 그릴 단일 진실원."""
+    return {
+        "types": [
+            {"type": t, "label": d["label"],
+             "fields": loader.form_fields(t), "required": loader.required_keys(t),
+             "mixins": d["mixins"]}
+            for t, d in loader.types().items()
+        ],
+        "relations": loader.relations(),
+    }
+
+
+@router.get("/entities")
+def entities_by_type(type: str):
+    return entity.list_by_type(type)
+
+
+@router.get("/entity/{eid}")
+def entity_detail(eid: str):
+    e = entity.get_entity(eid)
+    if not e:
+        raise HTTPException(404, "entity not found")
+    return {**e, "relations": entity.list_relations(eid),
+            "timeline": entity.list_timeline(eid), "secrets": entity.list_secrets(eid)}
+
+
+@router.post("/entity")
+def entity_save(body: EntitySaveIn):
+    """타입 폼 저장(생성/수정). 필수검증·버전잠금."""
+    try:
+        return entity.save_entity(body.type, body.data, expected_version=body.expected_version)
+    except entity.ValidationError as e:
+        raise HTTPException(422, str(e))
+    except entity.VersionConflict as e:
+        raise HTTPException(409, str(e))
+
+
+@router.delete("/entity/{eid}")
+def entity_delete(eid: str):
+    entity.delete_entity(eid); return {"ok": True}
+
+
+@router.post("/relation")
+def relation_add(body: RelationIn):
+    """양방향 관계 주입(역관계 포함)."""
+    entity.set_relation(body.from_name, body.rel, body.to_name); return {"ok": True}
+
+
+@router.delete("/relation/{pair_id}")
+def relation_delete(pair_id: str):
+    entity.delete_pair(pair_id); return {"ok": True}
+
+
+@router.post("/entity/{eid}/timeline")
+def timeline_add(eid: str, body: TimelineIn):
+    return {"id": entity.add_timeline(eid, body.era, body.state, body.note, body.seq)}
+
+
+@router.post("/entity/{eid}/secret")
+def secret_add(eid: str, body: SecretIn):
+    return {"id": entity.add_secret(eid, body.fact, body.known_by, body.reveal_at)}
+
+
+@router.get("/export")
+def export_all():
+    """전체 그래프 JSON 스냅샷."""
+    return export.export_json()
+
+
+@router.get("/export/csv")
+def export_table_csv(table: str = "entities"):
+    try:
+        body = export.export_csv(table)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return Response(content=body, media_type="text/csv",
+                    headers={"Content-Disposition": f'attachment; filename="{table}.csv"'})
+
+
+@router.get("/editlog")
+def editlog(limit: int = 100):
+    return entity.recent_log(limit)

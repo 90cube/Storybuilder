@@ -25,11 +25,15 @@ def init_db() -> None:
 
 
 def _migrate(conn) -> None:
-    """기존 DB: chapters.season_id 추가 + 프로젝트별 기본 '시즌 1' 백필."""
+    """기존 DB: chapters.season_id 추가 + 프로젝트별 기본 '시즌 1' 백필 + entities.data_json 추가."""
     cols = [r["name"] for r in conn.execute("PRAGMA table_info(chapters)")]
     if "season_id" not in cols:
         conn.execute("ALTER TABLE chapters ADD COLUMN season_id INTEGER")
     conn.execute("CREATE INDEX IF NOT EXISTS ix_chapters_season ON chapters(season_id)")
+    # 스키마주도 타입 필드 blob (구 DB에는 없음)
+    ecols = [r["name"] for r in conn.execute("PRAGMA table_info(entities)")]
+    if "data_json" not in ecols:
+        conn.execute("ALTER TABLE entities ADD COLUMN data_json TEXT")
     for p in conn.execute("SELECT id FROM projects").fetchall():
         pid = p["id"]
         s = conn.execute("SELECT id FROM seasons WHERE project_id=? ORDER BY idx,id LIMIT 1",

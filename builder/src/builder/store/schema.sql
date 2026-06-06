@@ -5,6 +5,7 @@ PRAGMA journal_mode = WAL;
 CREATE TABLE IF NOT EXISTS entities (
   id TEXT PRIMARY KEY, name TEXT NOT NULL, category TEXT,
   description TEXT, persona_json TEXT, relations_json TEXT, locations_json TEXT,
+  data_json TEXT,  -- 스키마(타입)별 필드 값 blob (editor/schema/*.json 키 기준)
   source TEXT DEFAULT 'fan', confidence REAL DEFAULT 0.5, status TEXT DEFAULT 'pending',
   version INTEGER DEFAULT 1, updated_at TEXT, updated_by TEXT
 );
@@ -19,6 +20,25 @@ CREATE TABLE IF NOT EXISTS events (
   version INTEGER DEFAULT 1, updated_at TEXT, updated_by TEXT
 );
 CREATE TABLE IF NOT EXISTS aliases ( alias TEXT PRIMARY KEY, entity_id TEXT );
+
+-- ── 엔티티 부품(에디터 믹스인: timeline·secrets) + 편집 로그 ──
+-- 시계열 누적: 엔티티별 상태 스냅샷(시간축 정렬)
+CREATE TABLE IF NOT EXISTS timeline (
+  id INTEGER PRIMARY KEY AUTOINCREMENT, entity_id TEXT NOT NULL,
+  seq INTEGER DEFAULT 0, era TEXT, state TEXT, note TEXT,
+  created_at TEXT, created_by TEXT
+);
+-- 비밀/인지상태: 누가·언제부터 아는가 + 독자 공개 시점
+CREATE TABLE IF NOT EXISTS secrets (
+  id INTEGER PRIMARY KEY AUTOINCREMENT, entity_id TEXT,
+  fact TEXT NOT NULL, known_by_json TEXT, reveal_at TEXT,
+  created_at TEXT, created_by TEXT
+);
+-- 편집 로그: 누가·언제·무엇을·전→후 (자동 기록)
+CREATE TABLE IF NOT EXISTS edit_log (
+  id INTEGER PRIMARY KEY AUTOINCREMENT, ts TEXT, who TEXT,
+  op TEXT, target_kind TEXT, target_id TEXT, before_json TEXT, after_json TEXT
+);
 
 -- ── 원고 / 파이프라인 ──
 CREATE TABLE IF NOT EXISTS projects (
@@ -63,3 +83,7 @@ CREATE INDEX IF NOT EXISTS ix_chapters_project ON chapters(project_id);
 -- ix_chapters_season은 season_id 컬럼 마이그레이션 후 _migrate에서 생성
 CREATE INDEX IF NOT EXISTS ix_manuscripts_chapter ON manuscripts(chapter_id);
 CREATE INDEX IF NOT EXISTS ix_autosaves_chapter ON autosaves(chapter_id);
+CREATE INDEX IF NOT EXISTS ix_timeline_entity ON timeline(entity_id);
+CREATE INDEX IF NOT EXISTS ix_secrets_entity ON secrets(entity_id);
+CREATE INDEX IF NOT EXISTS ix_relations_from ON relations(from_id);
+CREATE INDEX IF NOT EXISTS ix_relations_to ON relations(to_id);

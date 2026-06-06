@@ -58,8 +58,6 @@ def upsert_entity(ent: dict, who: str = "creator") -> str:
 
 
 def add_relation(from_name: str, rel: str, to_name: str, who: str = "creator") -> None:
-    with get_conn() as c:
-        c.execute("""INSERT INTO relations(id,from_id,rel,to_id,pair_id,source,updated_at,updated_by)
-                     VALUES(?,?,?,?,?,?,?,?)""",
-                  (f"{_slug(from_name)}-{rel}-{_slug(to_name)}", _slug(from_name), rel,
-                   _slug(to_name), f"p_{_slug(from_name)}_{_slug(to_name)}", "fan", _now(), who))
+    """양방향 주입(역관계 포함)은 entity.set_relation 에 위임 — 단일 경로 유지."""
+    from builder.store import entity  # 지연 import: graph↔entity 순환 회피
+    entity.set_relation(from_name, rel, to_name, who)
