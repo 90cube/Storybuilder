@@ -73,6 +73,7 @@ class PromoteIn(BaseModel):
 class EntitySaveIn(BaseModel):
     type: str
     data: dict
+    project_id: int
     expected_version: int | None = None
 
 
@@ -80,6 +81,7 @@ class RelationIn(BaseModel):
     from_name: str = Field(alias="from")
     rel: str
     to_name: str = Field(alias="to")
+    project_id: int
 
     model_config = {"populate_by_name": True}
 
@@ -240,8 +242,9 @@ def detect(chapter_id: int):
         raise HTTPException(404, "chapter not found")
     t = ch["texts"]
     text = (t.get("polish") or t.get("draft") or {}).get("text", "")
+    pid = repo.project_of(chapter_id)
     try:
-        cands = extract_svc.detect_new_characters(text, graph.known_names(), world=repo.world_of(chapter_id))
+        cands = extract_svc.detect_new_characters(text, graph.known_names(pid), world=repo.world_of(chapter_id))
     except Exception as e:
         raise HTTPException(500, f"{type(e).__name__}: {e}")
     if pipeline.can_advance(repo.get_state(chapter_id), "CHAR_DETECT"):
@@ -274,15 +277,15 @@ def canon_diff(chapter_id: int):
         ext = extract_svc.extract_from_text(_final_text(ch), world=repo.world_of(chapter_id))
     except Exception as e:
         raise HTTPException(500, f"{type(e).__name__}: {e}")
-    d = canon.diff_against_graph(ext)
+    d = canon.diff_against_graph(ext, repo.project_of(chapter_id))
     repo.set_state(chapter_id, "EXTRACT")
     return {**d, "state": repo.get_state(chapter_id)}
 
 
 @router.post("/canon/promote")
 def canon_promote(body: PromoteIn):
-    """승인 항목을 canon 승격 + DB 반영. DB_SYNC2→CHAPTER_SAVE."""
-    res = canon.promote(body.entities, body.relations)
+    """승인 항목을 canon 승격 + DB 반영(작품 한정). DB_SYNC2→CHAPTER_SAVE."""
+    res = canon.promote(body.entities, body.relations, repo.project_of(body.chapter_id))
     repo.set_state(body.chapter_id, "CHAPTER_SAVE")
     return {**res, "state": repo.get_state(body.chapter_id)}
 
@@ -303,18 +306,19 @@ def analyze(chapter_id: int, mode: str = "raw"):
 
 
 @router.get("/graph/entities")
-def graph_entities():
-    return graph.list_entities()
+def graph_entities(project: int):
+    """현재 작품의 등록 엔티티 목록."""
+    return graph.list_entities(project)
 
 
 @router.post("/graph/entity")
-def graph_entity(body: EntityIn, chapter_id: int | None = None):
-    """신캐 등록 (DB_WRITE→DB_SYNC)."""
-    eid = graph.upsert_entity(body.model_dump())
-    if chapter_id is not None:
-        for s in ("DB_WRITE", "DB_SYNC"):
-            if pipeline.can_advance(repo.get_state(chapter_id), s):
-                repo.set_state(chapter_id, s)
+def graph_entity(body: EntityIn, chapter_id: int):
+    """신캐 등록 (DB_WRITE→DB_SYNC). 화가 속한 작품에 귀속."""
+    pid = repo.project_of(chapter_id)
+    eid = graph.upsert_entity(body.model_dump(), pid)
+    for s in ("DB_WRITE", "DB_SYNC"):
+        if pipeline.can_advance(repo.get_state(chapter_id), s):
+            repo.set_state(chapter_id, s)
     return {"id": eid}
 
 
@@ -334,9 +338,9 @@ def schema():
 
 
 @router.get("/typed-entities")
-def entities_by_type(type: str):
-    """타입별 엔티티 목록(에디터 폼용). /api/entities(인물 피커, app.py)와 구분."""
-    return entity.list_by_type(type)
+def entities_by_type(type: str, project: int):
+    """작품·타입별 엔티티 목록(에디터 폼용). /api/entities(인물 피커, app.py)와 구분."""
+    return entity.list_by_type(type, project)
 
 
 @router.get("/entity/{eid}")
@@ -352,7 +356,7 @@ def entity_detail(eid: str):
 def entity_save(body: EntitySaveIn):
     """타입 폼 저장(생성/수정). 필수검증·버전잠금."""
     try:
-        return entity.save_entity(body.type, body.data, expected_version=body.expected_version)
+        return entity.save_entity(body.type, body.data, body.project_id, expected_version=body.expected_version)
     except entity.ValidationError as e:
         raise HTTPException(422, str(e))
     except entity.VersionConflict as e:
@@ -366,8 +370,8 @@ def entity_delete(eid: str):
 
 @router.post("/relation")
 def relation_add(body: RelationIn):
-    """양방향 관계 주입(역관계 포함)."""
-    entity.set_relation(body.from_name, body.rel, body.to_name); return {"ok": True}
+    """양방향 관계 주입(역관계 포함, 작품 한정)."""
+    entity.set_relation(body.from_name, body.rel, body.to_name, body.project_id); return {"ok": True}
 
 
 @router.delete("/relation/{pair_id}")
@@ -386,21 +390,21 @@ def secret_add(eid: str, body: SecretIn):
 
 
 @router.get("/export")
-def export_all():
-    """전체 그래프 JSON 스냅샷."""
-    return export.export_json()
+def export_all(project: int):
+    """작품 한정 그래프 JSON 스냅샷."""
+    return export.export_json(project)
 
 
 @router.get("/export/csv")
-def export_table_csv(table: str = "entities"):
+def export_table_csv(project: int, table: str = "entities"):
     try:
-        body = export.export_csv(table)
+        body = export.export_csv(table, project)
     except ValueError as e:
         raise HTTPException(400, str(e))
     return Response(content=body, media_type="text/csv",
-                    headers={"Content-Disposition": f'attachment; filename="{table}.csv"'})
+                    headers={"Content-Disposition": f'attachment; filename="{table}_p{project}.csv"'})
 
 
 @router.get("/editlog")
-def editlog(limit: int = 100):
-    return entity.recent_log(limit)
+def editlog(project: int, limit: int = 100):
+    return entity.recent_log(project, limit)

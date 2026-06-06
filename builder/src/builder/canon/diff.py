@@ -6,8 +6,8 @@ change: 추가(신규) / 변경(기존 존재) / 충돌(tbg 모순 — 후속에
 from builder.store import graph
 
 
-def diff_against_graph(extracted: dict) -> dict:
-    known = graph.known_names()
+def diff_against_graph(extracted: dict, project_id: int) -> dict:
+    known = graph.known_names(project_id)
     ents = []
     for e in extracted.get("entities", []):
         nm = (e.get("name") or "").strip()
@@ -19,14 +19,14 @@ def diff_against_graph(extracted: dict) -> dict:
     return {"entities": ents, "relations": rels, "events": evs}
 
 
-def promote(entities: list[dict], relations: list[dict]) -> dict:
-    """승인된 항목을 canon으로 승격(source=canon, status=confirmed)."""
+def promote(entities: list[dict], relations: list[dict], project_id: int) -> dict:
+    """승인된 항목을 canon으로 승격(작품 한정, source=canon, status=confirmed)."""
     n_e = n_r = 0
     for e in entities:
-        graph.upsert_entity({**e, "source": "canon", "status": "confirmed"})
+        graph.upsert_entity({**e, "source": "canon", "status": "confirmed"}, project_id)
         n_e += 1
     for r in relations:
         if r.get("from") and r.get("to"):
-            graph.add_relation(r["from"], r.get("rel", "관련"), r["to"])
+            graph.add_relation(r["from"], r.get("rel", "관련"), r["to"], project_id)
             n_r += 1
     return {"entities": n_e, "relations": n_r}

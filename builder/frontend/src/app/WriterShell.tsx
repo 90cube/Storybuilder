@@ -39,12 +39,16 @@ export function WriterShell() {
   const [analysis, setAnalysis] = useState<{ events: CanonItem[]; entities: CanonItem[]; relations: CanonItem[] } | null>(null);
   const [autoAnalyze, setAutoAnalyze] = useState(false);
   const [centerMode, setCenterMode] = useState<CenterMode>("write");
+  const [currentProj, setCurrentProj] = useState<number | null>(null);
   const timer = useRef<number>(0);
   const aTimer = useRef<number>(0);
   const textRef = useRef<string>("");
   const autoRef = useRef(false);
   autoRef.current = autoAnalyze;
-  const refreshDb = useCallback(async () => { try { setDbEnts(await api.graphEntities()); } catch { /* */ } }, [api.graphEntities]);
+  const refreshDb = useCallback(async () => {
+    if (currentProj == null) { setDbEnts([]); return; }
+    try { setDbEnts(await api.graphEntities(currentProj)); } catch { /* */ }
+  }, [api.graphEntities, currentProj]);
   useEffect(() => { refreshDb(); }, [refreshDb]);
 
   const loadSeasons = useCallback(async (pid: number) => {
@@ -55,11 +59,14 @@ export function WriterShell() {
     const cs = await api.listChapters(sid);
     setChBySeason((m) => ({ ...m, [sid]: cs }));
   }, [api.listChapters]);
-  const toggleProject = (pid: number) => setExpProj((s) => {
-    const n = new Set(s);
-    if (n.has(pid)) n.delete(pid); else { n.add(pid); loadSeasons(pid); }
-    return n;
-  });
+  const toggleProject = (pid: number) => {
+    setCurrentProj(pid);  // 작품 클릭 = 현재 작품 (엔티티/DB 스코프)
+    setExpProj((s) => {
+      const n = new Set(s);
+      if (n.has(pid)) n.delete(pid); else { n.add(pid); loadSeasons(pid); }
+      return n;
+    });
+  };
   const toggleSeason = (sid: number) => setExpSeason((s) => {
     const n = new Set(s);
     if (n.has(sid)) n.delete(sid); else { n.add(sid); loadChapters(sid); }
@@ -69,14 +76,14 @@ export function WriterShell() {
   useEffect(() => {
     if (api.projects.length && expProj.size === 0) {
       const pid = api.projects[0].id;
-      setExpProj(new Set([pid])); loadSeasons(pid);
+      setExpProj(new Set([pid])); loadSeasons(pid); setCurrentProj((c) => c ?? pid);
     }
   }, [api.projects, expProj.size, loadSeasons]);
 
   const openChapter = async (id: number) => {
     const d = await api.getChapter(id);
     const draft = d.texts.draft?.text ?? "";
-    setActive(d); setText(draft); textRef.current = draft; setSaved("불러옴");
+    setActive(d); setCurrentProj(d.chapter.project_id); setText(draft); textRef.current = draft; setSaved("불러옴");
     setCands(null); setCanon(null); setResult(null);
   };
   const addSeason = async (pid: number) => {
@@ -394,7 +401,7 @@ export function WriterShell() {
     ? <div className={w.placeholder}>좌측에서 화를 열거나 새로 만드세요.</div>
     : (canon ? canonPanel : (cands ? charPanel : (result ? diff : editor)));
   const centerInner = centerMode === "entities"
-    ? <EntityEditor api={api} onChanged={refreshDb} />
+    ? <EntityEditor api={api} projectId={currentProj} onChanged={refreshDb} />
     : centerMode === "canvas"
       ? <LaneCanvas api={api} chapterId={active?.chapter.id ?? null} />
       : writeCenter;

@@ -20,7 +20,7 @@ function Field({ f, value, onChange }: { f: SchemaField; value: unknown; onChang
   return <input {...common} />;
 }
 
-export function EntityEditor({ api, onChanged }: { api: Api; onChanged?: () => void }) {
+export function EntityEditor({ api, projectId, onChanged }: { api: Api; projectId: number | null; onChanged?: () => void }) {
   const [schema, setSchema] = useState<SchemaInfo | null>(null);
   const [type, setType] = useState("character");
   const [rows, setRows] = useState<EntityRow[]>([]);
@@ -36,7 +36,10 @@ export function EntityEditor({ api, onChanged }: { api: Api; onChanged?: () => v
   const typeDef = useMemo(() => schema?.types.find((t) => t.type === type), [schema, type]);
 
   useEffect(() => { api.getSchema().then(setSchema).catch(() => {}); }, [api.getSchema]);
-  const reload = useCallback(() => api.listEntitiesByType(type).then(setRows).catch(() => {}), [api.listEntitiesByType, type]);
+  const reload = useCallback(() => {
+    if (projectId == null) { setRows([]); return Promise.resolve(); }
+    return api.listEntitiesByType(type, projectId).then(setRows).catch(() => {});
+  }, [api.listEntitiesByType, type, projectId]);
   useEffect(() => { reload(); setSel(null); setForm({}); }, [reload]);
 
   const startNew = () => { setSel(null); setForm({}); setErr(""); setMsg(""); };
@@ -48,8 +51,9 @@ export function EntityEditor({ api, onChanged }: { api: Api; onChanged?: () => v
 
   const save = async () => {
     setErr(""); setMsg("");
+    if (projectId == null) { setErr("좌측에서 작품을 먼저 선택하세요."); return; }
     try {
-      const r = await api.saveEntity(type, form, sel?.version);
+      const r = await api.saveEntity(type, form, projectId, sel?.version);
       setMsg(`저장됨 (v${r.version})`); await reload(); await open(r.id); onChanged?.();
     } catch (e) { setErr((e as Error).message); }
   };
@@ -58,8 +62,8 @@ export function EntityEditor({ api, onChanged }: { api: Api; onChanged?: () => v
     await api.deleteEntity(sel.id); startNew(); reload(); onChanged?.();
   };
   const addRel = async () => {
-    if (!sel || !rel.to.trim()) return;
-    await api.addRelationTyped(sel.name, rel.rel, rel.to.trim()); setRel({ ...rel, to: "" }); open(sel.id); onChanged?.();
+    if (!sel || !rel.to.trim() || projectId == null) return;
+    await api.addRelationTyped(sel.name, rel.rel, rel.to.trim(), projectId); setRel({ ...rel, to: "" }); open(sel.id); onChanged?.();
   };
   const addTl = async () => {
     if (!sel || !tl.state.trim()) return;
@@ -75,12 +79,17 @@ export function EntityEditor({ api, onChanged }: { api: Api; onChanged?: () => v
     <div className={w.entWrap}>
       {/* 타입 탭 */}
       <div className={w.entTabs}>
+        <span className={w.entScope}>
+          {projectId == null ? "작품 미선택" : `◆ ${api.projects.find((p) => p.id === projectId)?.title ?? "작품 #" + projectId}`}
+        </span>
         {schema?.types.map((t) => (
           <button key={t.type} className={w.entTab} data-on={t.type === type} onClick={() => setType(t.type)}>{t.label}</button>
         ))}
         <span style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
-          <a className={w.entLink} href="/api/export" target="_blank" rel="noreferrer">JSON 내보내기</a>
-          <a className={w.entLink} href={`/api/export/csv?table=entities`} target="_blank" rel="noreferrer">CSV</a>
+          {projectId != null && <>
+            <a className={w.entLink} href={`/api/export?project=${projectId}`} target="_blank" rel="noreferrer">JSON 내보내기</a>
+            <a className={w.entLink} href={`/api/export/csv?project=${projectId}&table=entities`} target="_blank" rel="noreferrer">CSV</a>
+          </>}
         </span>
       </div>
       <div className={w.entBody}>

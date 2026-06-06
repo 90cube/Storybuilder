@@ -156,6 +156,13 @@ def world_of(chapter_id: int) -> str:
         return r["title"] if r else ""
 
 
+def project_of(chapter_id: int) -> int | None:
+    """화가 속한 프로젝트(작품) id — 그래프를 작품별로 격리할 때 사용."""
+    with get_conn() as c:
+        r = c.execute("SELECT project_id FROM chapters WHERE id=?", (chapter_id,)).fetchone()
+        return r["project_id"] if r else None
+
+
 def get_state(chapter_id: int) -> str:
     with get_conn() as c:
         r = c.execute("SELECT state FROM pipeline_runs WHERE chapter_id=?", (chapter_id,)).fetchone()

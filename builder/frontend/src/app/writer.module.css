@@ -106,6 +106,7 @@
   font: 500 var(--fs-sm)/1 var(--font-body); padding: 5px 10px; }
 .entTab:hover { background: var(--ink-750); color: var(--text); }
 .entTab[data-on="true"] { background: var(--ember-glow); color: var(--ember-b); border-color: var(--ember-d); }
+.entScope { font: 600 var(--fs-xs)/1 var(--font-mono); color: var(--arcane); padding: 4px 8px; margin-right: 4px; white-space: nowrap; }
 .entLink { font: 500 var(--fs-xs)/1 var(--font-mono); color: var(--arcane); text-decoration: none; padding: 4px 8px; border: 1px solid var(--line-2); border-radius: 5px; }
 .entLink:hover { color: var(--ember-b); border-color: var(--ember-d); }
 .entBody { flex: 1; min-height: 0; display: grid; grid-template-columns: 200px 1fr; }

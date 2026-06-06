@@ -78,18 +78,19 @@ export function useCreator() {
     post(`/api/canon/diff/${chapter_id}`, {}) as Promise<{ entities: CanonItem[]; relations: CanonItem[]; events: CanonItem[]; state: string }>, []);
   const canonPromote = useCallback((chapter_id: number, entities: CanonItem[], relations: CanonItem[]) =>
     post("/api/canon/promote", { chapter_id, entities, relations }) as Promise<{ entities: number; relations: number; state: string }>, []);
-  const graphEntities = useCallback(() => j<GraphEntity[]>("/api/graph/entities"), []);
+  const graphEntities = useCallback((project: number) => j<GraphEntity[]>(`/api/graph/entities?project=${project}`), []);
   const analyze = useCallback((chapter_id: number) =>
     post(`/api/analyze/${chapter_id}`, {}) as Promise<{ events: CanonItem[]; entities: CanonItem[]; relations: CanonItem[] }>, []);
   // ── 에디터 흡수: 스키마·엔티티·관계·타임라인·비밀·내보내기 ──
   const getSchema = useCallback(() => j<SchemaInfo>("/api/schema"), []);
-  const listEntitiesByType = useCallback((type: string) => j<EntityRow[]>(`/api/typed-entities?type=${encodeURIComponent(type)}`), []);
+  const listEntitiesByType = useCallback((type: string, project: number) =>
+    j<EntityRow[]>(`/api/typed-entities?type=${encodeURIComponent(type)}&project=${project}`), []);
   const getEntityDetail = useCallback((eid: string) => j<EntityFull>(`/api/entity/${encodeURIComponent(eid)}`), []);
-  const saveEntity = useCallback((type: string, data: Record<string, unknown>, expected_version?: number) =>
-    post("/api/entity", { type, data, expected_version }) as Promise<{ id: string; version: number }>, []);
+  const saveEntity = useCallback((type: string, data: Record<string, unknown>, project: number, expected_version?: number) =>
+    post("/api/entity", { type, data, project_id: project, expected_version }) as Promise<{ id: string; version: number }>, []);
   const deleteEntity = useCallback((eid: string) => del(`/api/entity/${encodeURIComponent(eid)}`), []);
-  const addRelationTyped = useCallback((from: string, rel: string, to: string) =>
-    post("/api/relation", { from, rel, to }), []);
+  const addRelationTyped = useCallback((from: string, rel: string, to: string, project: number) =>
+    post("/api/relation", { from, rel, to, project_id: project }), []);
   const deleteRelation = useCallback((pairId: string) => del(`/api/relation/${encodeURIComponent(pairId)}`), []);
   const addTimeline = useCallback((eid: string, body: { era: string; state: string; note?: string; seq?: number }) =>
     post(`/api/entity/${encodeURIComponent(eid)}/timeline`, body), []);

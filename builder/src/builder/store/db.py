@@ -34,6 +34,31 @@ def _migrate(conn) -> None:
     ecols = [r["name"] for r in conn.execute("PRAGMA table_info(entities)")]
     if "data_json" not in ecols:
         conn.execute("ALTER TABLE entities ADD COLUMN data_json TEXT")
+    _migrate_project_scope(conn)
+
+
+def _migrate_project_scope(conn) -> None:
+    """그래프 테이블을 작품별로 격리: project_id 컬럼 추가 + 기존 행은 최소 project로 귀속."""
+    first = conn.execute("SELECT MIN(id) AS m FROM projects").fetchone()
+    pid = first["m"] if first else None
+    for tbl in ("entities", "relations", "events", "timeline", "secrets", "edit_log"):
+        cols = [r["name"] for r in conn.execute(f"PRAGMA table_info({tbl})")]
+        if "project_id" not in cols:
+            conn.execute(f"ALTER TABLE {tbl} ADD COLUMN project_id INTEGER")
+            if pid is not None:
+                conn.execute(f"UPDATE {tbl} SET project_id=? WHERE project_id IS NULL", (pid,))
+    # aliases: PK를 (project_id, alias) 복합키로 — ALTER 불가라 재생성
+    acols = [r["name"] for r in conn.execute("PRAGMA table_info(aliases)")]
+    if "project_id" not in acols:
+        conn.execute("ALTER TABLE aliases RENAME TO aliases_old")
+        conn.execute("CREATE TABLE aliases (project_id INTEGER, alias TEXT, entity_id TEXT, "
+                     "PRIMARY KEY (project_id, alias))")
+        conn.execute("INSERT OR IGNORE INTO aliases(project_id,alias,entity_id) "
+                     "SELECT ?, alias, entity_id FROM aliases_old", (pid,))
+        conn.execute("DROP TABLE aliases_old")
+    conn.execute("CREATE INDEX IF NOT EXISTS ix_entities_project ON entities(project_id)")
+    conn.execute("CREATE INDEX IF NOT EXISTS ix_relations_project ON relations(project_id)")
+    conn.execute("CREATE INDEX IF NOT EXISTS ix_events_project ON events(project_id)")
     for p in conn.execute("SELECT id FROM projects").fetchall():
         pid = p["id"]
         s = conn.execute("SELECT id FROM seasons WHERE project_id=? ORDER BY idx,id LIMIT 1",
