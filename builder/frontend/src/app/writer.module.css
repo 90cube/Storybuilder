@@ -41,6 +41,19 @@
 .savedBadge { margin-left: auto; }
 .placeholder { display: grid; place-items: center; height: 100%; color: var(--text-mut); font-style: italic; }
 
+/* 초안 분석 패널 (에디터 하단, 실시간 노드·엣지) */
+.analysisPanel { flex: 0 0 auto; max-height: 38%; display: flex; flex-direction: column; border-top: 1px solid var(--line); background: var(--ink-850); }
+.analysisHead { display: flex; align-items: center; gap: var(--sp-2); padding: 6px 14px; border-bottom: 1px solid var(--line); font: 600 var(--fs-xs)/1 var(--font-mono); letter-spacing: .06em; color: var(--text-dim); }
+.aCount { color: var(--ember-b); }
+.aTools { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.muted { color: var(--text-mut); font-size: var(--fs-xs); }
+.analysisBody { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1fr 1fr; overflow: hidden; }
+.aCol { min-height: 0; overflow: auto; border-right: 1px solid var(--line); padding-bottom: 8px; }
+.aCol:last-child { border-right: none; }
+.aColH { position: sticky; top: 0; background: var(--ink-850); padding: 6px 12px; font: 600 var(--fs-xs)/1 var(--font-mono); color: var(--arcane); border-bottom: 1px solid var(--line); }
+.aItem { padding: 4px 12px; font-size: var(--fs-sm); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.aEmpty { padding: 4px 12px; color: var(--text-mut); font-size: var(--fs-xs); }
+
 /* 생성 결과 diff */
 .diffHead { display: flex; align-items: center; gap: var(--sp-2); padding: 10px 16px; border-bottom: 1px solid var(--line); font: 600 var(--fs-sm)/1 var(--font-body); color: var(--ember-b); }
 .diffGrid { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; }

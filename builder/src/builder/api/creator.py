@@ -258,6 +258,21 @@ def canon_promote(body: PromoteIn):
     return {**res, "state": repo.get_state(body.chapter_id)}
 
 
+@router.post("/analyze/{chapter_id}")
+def analyze(chapter_id: int, mode: str = "raw"):
+    """현재 초안에서 전체 구조(events·entities·relations)를 추출 — 비확정(분석용, FSM/DB 변경 없음)."""
+    ch = repo.get_chapter(chapter_id)
+    if not ch:
+        raise HTTPException(404, "chapter not found")
+    text = ch["texts"].get("draft", {}).get("text", "")
+    try:
+        d = extract_svc.extract_from_text(text, mode=mode, world=repo.world_of(chapter_id))
+    except Exception as e:
+        raise HTTPException(500, f"{type(e).__name__}: {e}")
+    return {"events": d.get("events", []), "entities": d.get("entities", []),
+            "relations": d.get("relations", [])}
+
+
 @router.get("/graph/entities")
 def graph_entities():
     return graph.list_entities()

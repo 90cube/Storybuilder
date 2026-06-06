@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Badge, Button, Input, Panel, Spinner } from "../components/primitives";
+import { Badge, Button, Input, Panel, Spinner, Toggle } from "../components/primitives";
 import { AspectLayout, ResizableSplit, StatusBar, Titlebar } from "../components/shell";
 import { useCreator, type Season, type Chapter, type ChapterDetail, type CanonItem, type GraphEntity } from "../lib/useCreator";
-import { CHAPTER_AUTOSAVE_MS, DRAFT_TARGET_CHARS } from "../lib/const";
+import { CHAPTER_AUTOSAVE_MS, DRAFT_TARGET_CHARS, ANALYZE_DEBOUNCE_MS } from "../lib/const";
 import w from "./writer.module.css";
 
 const TOGGLES: { mode: string; label: string }[] = [
@@ -27,8 +27,13 @@ export function WriterShell() {
   const [cards, setCards] = useState<Record<string, { description: string; speech_style: string; relations: string[] }>>({});
   const [canon, setCanon] = useState<{ entities: CanonItem[]; relations: CanonItem[]; events: CanonItem[] } | null>(null);
   const [dbEnts, setDbEnts] = useState<GraphEntity[]>([]);
+  const [analysis, setAnalysis] = useState<{ events: CanonItem[]; entities: CanonItem[]; relations: CanonItem[] } | null>(null);
+  const [autoAnalyze, setAutoAnalyze] = useState(false);
   const timer = useRef<number>(0);
+  const aTimer = useRef<number>(0);
   const textRef = useRef<string>("");
+  const autoRef = useRef(false);
+  autoRef.current = autoAnalyze;
   const refreshDb = useCallback(async () => { try { setDbEnts(await api.graphEntities()); } catch { /* */ } }, [api.graphEntities]);
   useEffect(() => { refreshDb(); }, [refreshDb]);
 
@@ -126,6 +131,21 @@ export function WriterShell() {
     timer.current = window.setTimeout(doSave, CHAPTER_AUTOSAVE_MS);
     return () => window.clearTimeout(timer.current);
   }, [text, cid, doSave]);
+
+  // 초안 실시간 분석 (전체 노드·엣지·사건). 수동 버튼 + 자동(입력 멈춘 뒤).
+  const analyzeNow = useCallback(async () => {
+    if (cid == null) return;
+    setBusy("analyze");
+    try { await doSave(); setAnalysis(await api.analyze(cid)); }
+    catch { /* 이전 결과 유지 */ }
+    finally { setBusy(""); }
+  }, [cid, doSave, api.analyze]);
+  useEffect(() => {
+    if (cid == null || !autoAnalyze) return;
+    window.clearTimeout(aTimer.current);
+    aTimer.current = window.setTimeout(() => { if (autoRef.current) analyzeNow(); }, ANALYZE_DEBOUNCE_MS);
+    return () => window.clearTimeout(aTimer.current);
+  }, [text, cid, autoAnalyze, analyzeNow]);
 
   const onToggle = async (mode: string) => {
     if (!active || busy) return;
@@ -270,6 +290,36 @@ export function WriterShell() {
           <span key={e.id} className={w.inlineTag}>{e.name}</span>
         ))}
         <span className={w.savedBadge}><Badge tone="jade">저장: {saved || "—"}</Badge></span>
+      </div>
+      <div className={w.analysisPanel}>
+        <div className={w.analysisHead}>
+          <span>초안 분석 — 노드·엣지·사건</span>
+          {analysis && <span className={w.aCount}>사건 {analysis.events.length} · 노드 {analysis.entities.length} · 엣지 {analysis.relations.length}</span>}
+          <span className={w.aTools}>
+            <span className={w.muted}>자동</span><Toggle on={autoAnalyze} onChange={setAutoAnalyze} />
+            <Button disabled={busy === "analyze"} onClick={analyzeNow}>
+              {busy === "analyze" ? <><Spinner /> 분석…</> : "분석"}</Button>
+          </span>
+        </div>
+        {analysis ? (
+          <div className={w.analysisBody}>
+            <div className={w.aCol}>
+              <div className={w.aColH}>사건 ({analysis.events.length})</div>
+              {analysis.events.map((e, i) => <div key={i} className={w.aItem}>📅 {e.title}</div>)}
+              {!analysis.events.length && <div className={w.aEmpty}>—</div>}
+            </div>
+            <div className={w.aCol}>
+              <div className={w.aColH}>노드 ({analysis.entities.length})</div>
+              {analysis.entities.map((e, i) => <div key={i} className={w.aItem}>◆ {e.name} <span className={w.muted}>{e.category}</span></div>)}
+              {!analysis.entities.length && <div className={w.aEmpty}>—</div>}
+            </div>
+            <div className={w.aCol}>
+              <div className={w.aColH}>엣지 ({analysis.relations.length})</div>
+              {analysis.relations.map((r, i) => <div key={i} className={w.aItem}>{r.from} <span className={w.muted}>—{r.rel}→</span> {r.to}</div>)}
+              {!analysis.relations.length && <div className={w.aEmpty}>—</div>}
+            </div>
+          </div>
+        ) : <div className={w.aEmpty} style={{ padding: 12 }}>「분석」을 누르거나 자동을 켜면 초안의 사건·노드·엣지가 실시간으로 표시됩니다.</div>}
       </div>
     </div>
   );

@@ -2,3 +2,4 @@
 export const CHAPTER_AUTOSAVE_MS = 10000; // 10초 무동작 → 자동저장 (기획서 §9)
 export const DRAFT_TARGET_CHARS = 2000;   // 초안 권고 분량 (초과 시 청킹 권고)
 export const FULL_TARGET_CHARS = 12000;   // 완성본 목표 분량
+export const ANALYZE_DEBOUNCE_MS = 12000; // 자동 분석: 입력 멈춘 뒤 N초 후 추출
