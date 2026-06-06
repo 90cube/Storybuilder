@@ -153,7 +153,7 @@ export function WriterShell() {
   };
   const onAssist = async (name: string) => {
     setBusy("assist:" + name);
-    try { const c = await api.assist(name, ""); setCards((p) => ({ ...p, [name]: c })); }
+    try { const c = await api.assist(name, "", active?.chapter.id); setCards((p) => ({ ...p, [name]: c })); }
     catch (e) { alert("보조 실패: " + (e as Error).message); }
     finally { setBusy(""); }
   };

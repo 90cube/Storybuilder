@@ -148,6 +148,14 @@ def add_manuscript(chapter_id: int, kind: str, text: str) -> int:
 
 
 # ── pipeline run ──
+def world_of(chapter_id: int) -> str:
+    """화가 속한 프로젝트(작품) 제목 = 세계관 이름."""
+    with get_conn() as c:
+        r = c.execute("""SELECT p.title FROM chapters ch JOIN projects p ON p.id=ch.project_id
+                         WHERE ch.id=?""", (chapter_id,)).fetchone()
+        return r["title"] if r else ""
+
+
 def get_state(chapter_id: int) -> str:
     with get_conn() as c:
         r = c.execute("SELECT state FROM pipeline_runs WHERE chapter_id=?", (chapter_id,)).fetchone()

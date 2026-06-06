@@ -58,8 +58,8 @@ export function useCreator() {
     post("/api/gen", { chapter_id, mode, system }) as Promise<{ kind: string; text: string; state: string }>, []);
   const detect = useCallback((chapter_id: number) =>
     post(`/api/detect/${chapter_id}`, {}) as Promise<{ candidates: { name: string; description?: string }[]; state: string }>, []);
-  const assist = useCallback((name: string, context: string) =>
-    post("/api/chars/assist", { name, context }) as Promise<{ name: string; category: string; description: string; speech_style: string; relations: string[] }>, []);
+  const assist = useCallback((name: string, context: string, chapter_id?: number) =>
+    post("/api/chars/assist", { name, context, chapter_id }) as Promise<{ name: string; category: string; description: string; speech_style: string; relations: string[] }>, []);
   const registerEntity = useCallback((entity: Record<string, unknown>, chapter_id: number) =>
     post(`/api/graph/entity?chapter_id=${chapter_id}`, entity) as Promise<{ id: string }>, []);
   const ppPolish = useCallback((chapter_id: number) =>

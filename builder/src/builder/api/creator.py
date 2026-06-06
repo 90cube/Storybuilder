@@ -51,6 +51,7 @@ class ExtractIn(BaseModel):
 class CharAssistIn(BaseModel):
     name: str
     context: str = ""
+    chapter_id: int | None = None
 
 
 class EntityIn(BaseModel):
@@ -171,7 +172,7 @@ def gen(body: GenIn):
         raise HTTPException(404, "chapter not found")
     src = ch["texts"].get("draft", {}).get("text", "")
     try:
-        kind, out = modes.generate(body.mode, src, body.system)
+        kind, out = modes.generate(body.mode, src, world=repo.world_of(body.chapter_id), system=body.system)
     except Exception as e:  # LLM 미기동·모드 오류
         raise HTTPException(500, f"{type(e).__name__}: {e}")
     repo.add_manuscript(body.chapter_id, kind, out)
@@ -195,8 +196,9 @@ def extract(body: ExtractIn):
 
 @router.post("/chars/assist")
 def chars_assist(body: CharAssistIn):
+    world = repo.world_of(body.chapter_id) if body.chapter_id else ""
     try:
-        return chars_svc.assist(body.name, body.context)
+        return chars_svc.assist(body.name, body.context, world=world)
     except Exception as e:
         raise HTTPException(500, f"{type(e).__name__}: {e}")
 
@@ -210,7 +212,7 @@ def detect(chapter_id: int):
     t = ch["texts"]
     text = (t.get("polish") or t.get("draft") or {}).get("text", "")
     try:
-        cands = extract_svc.detect_new_characters(text, graph.known_names())
+        cands = extract_svc.detect_new_characters(text, graph.known_names(), world=repo.world_of(chapter_id))
     except Exception as e:
         raise HTTPException(500, f"{type(e).__name__}: {e}")
     if pipeline.can_advance(repo.get_state(chapter_id), "CHAR_DETECT"):
@@ -225,7 +227,7 @@ def pp_polish(chapter_id: int):
     if not ch:
         raise HTTPException(404, "chapter not found")
     try:
-        out = post_svc.partial_polish(_final_text(ch))
+        out = post_svc.partial_polish(_final_text(ch), world=repo.world_of(chapter_id))
     except Exception as e:
         raise HTTPException(500, f"{type(e).__name__}: {e}")
     repo.add_manuscript(chapter_id, "final", out)
@@ -240,7 +242,7 @@ def canon_diff(chapter_id: int):
     if not ch:
         raise HTTPException(404, "chapter not found")
     try:
-        ext = extract_svc.extract_from_text(_final_text(ch))
+        ext = extract_svc.extract_from_text(_final_text(ch), world=repo.world_of(chapter_id))
     except Exception as e:
         raise HTTPException(500, f"{type(e).__name__}: {e}")
     d = canon.diff_against_graph(ext)

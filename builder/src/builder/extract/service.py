@@ -8,6 +8,7 @@ import json
 import re
 
 from builder.llm import client
+from builder.llm.world import world_name, world_intro
 from builder.extract.grammar import EXTRACT_GBNF
 
 _SCHEMA_HINT = (
@@ -16,16 +17,20 @@ _SCHEMA_HINT = (
     ' "relations":[{"from","rel","to"}]}'
 )
 
-SYSTEM_RAW = f"""\
-너는 〈던전앤파이터(아라드)〉 세계관 구조 추출기다.
-산문에서 사건(events)·등장 존재(entities)·관계(relations)를 뽑아 **JSON으로만** 답한다.
-형식: {_SCHEMA_HINT}
-산문에 없는 것은 지어내지 마라(추측 금지). 코드펜스·설명·머리말 없이 JSON 객체만 출력."""
 
-SYSTEM_GRAMMAR = """\
-너는 〈던전앤파이터(아라드)〉 세계관 구조 추출기다.
-주어진 산문에서 events·entities·relations만 추출한다. 없는 것은 지어내지 마라.
-오직 지정된 JSON 형식으로만 출력한다."""
+def _system_raw(world: str | None) -> str:
+    return (f"너는 〈{world_name(world)}〉 세계관 구조 추출기다.\n{world_intro(world)}\n"
+            "산문에서 사건(events)·등장 존재(entities, 인물·장소·조직 포함)·관계(relations)를 "
+            "뽑아 **JSON으로만** 답한다.\n"
+            f"형식: {_SCHEMA_HINT}\n"
+            "산문에 없는 것은 지어내지 마라(추측 금지). 코드펜스·설명·머리말 없이 JSON 객체만 출력.")
+
+
+def _system_grammar(world: str | None) -> str:
+    return (f"너는 〈{world_name(world)}〉 세계관 구조 추출기다.\n{world_intro(world)}\n"
+            "주어진 산문에서 events·entities(인물·장소·조직)·relations만 추출한다. "
+            "없는 것은 지어내지 마라. 오직 지정된 JSON 형식으로만 출력한다.")
+
 
 _EMPTY = {"events": [], "entities": [], "relations": []}
 
@@ -40,30 +45,30 @@ def _parse(raw: str) -> dict | None:
         return None
 
 
-def extract_raw(text: str) -> dict:
-    raw = client.chat(SYSTEM_RAW, f"[산문]\n{text}", temperature=0.15, max_tokens=4096)
+def extract_raw(text: str, world: str = "") -> dict:
+    raw = client.chat(_system_raw(world), f"[산문]\n{text}", temperature=0.15, max_tokens=4096)
     return _parse(raw) or {**_EMPTY, "_raw": raw[:400], "_parse_failed": True}
 
 
-def extract_grammar(text: str) -> dict:
-    raw = client.chat_grammar(SYSTEM_GRAMMAR, f"다음 산문에서 구조를 추출하라.\n\n[산문]\n{text}",
+def extract_grammar(text: str, world: str = "") -> dict:
+    raw = client.chat_grammar(_system_grammar(world), f"다음 산문에서 구조를 추출하라.\n\n[산문]\n{text}",
                               EXTRACT_GBNF, temperature=0.1, max_tokens=4096)
     return _parse(raw) or {**_EMPTY, "_raw": raw[:400], "_parse_failed": True}
 
 
-def extract_from_text(text: str, mode: str = "raw") -> dict:
+def extract_from_text(text: str, mode: str = "raw", world: str = "") -> dict:
     """mode='raw'(기본) | 'grammar'. raw 파싱 실패 시 grammar 폴백."""
     if mode == "grammar":
-        return extract_grammar(text)
-    out = extract_raw(text)
+        return extract_grammar(text, world)
+    out = extract_raw(text, world)
     if out.get("_parse_failed"):
-        out = extract_grammar(text)  # 안전망
+        out = extract_grammar(text, world)  # 안전망
         out["_fallback"] = "grammar"
     return out
 
 
-def detect_new_characters(text: str, known_names: set[str], mode: str = "raw") -> list[dict]:
-    data = extract_from_text(text, mode)
+def detect_new_characters(text: str, known_names: set[str], mode: str = "raw", world: str = "") -> list[dict]:
+    data = extract_from_text(text, mode, world)
     out = []
     for e in data.get("entities", []):
         nm = (e.get("name") or "").strip()

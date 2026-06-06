@@ -1,12 +1,14 @@
 """생성 모드 정의 + 실행. 데이터(모드 스펙) + 얇은 호출."""
 
 from builder.llm import client
+from builder.llm.world import world_name, world_intro
 
-SYSTEM = """\
-너는 〈던전앤파이터(아라드)〉 세계관 소설 편집자이자 작가다.
-세계관 정합성을 지키고, 과장된 미사여구·클리셰를 피하며, 구체적 동기와 인과로 장면을 굴린다.
-원문의 사건·설정·인물 상태를 임의로 바꾸지 않는다. 한국어로, 자연스러운 소설 문체로 쓴다.
-출력은 본문만. 메타발언·사족·머리말 금지."""
+
+def build_system(world: str = "") -> str:
+    return (f"너는 〈{world_name(world)}〉 세계관 소설 편집자이자 작가다.\n{world_intro(world)}\n"
+            "세계관 정합성을 지키고, 과장된 미사여구·클리셰를 피하며, 구체적 동기와 인과로 장면을 굴린다. "
+            "원문의 사건·설정·인물 상태를 임의로 바꾸지 않는다. 한국어로, 자연스러운 소설 문체로 쓴다. "
+            "출력은 본문만. 메타발언·사족·머리말 금지.")
 
 # mode → (저장 kind, temperature, max_tokens, 지시)
 MODES: dict[str, tuple[str, float, int, str]] = {
@@ -21,11 +23,11 @@ MODES: dict[str, tuple[str, float, int, str]] = {
 }
 
 
-def generate(mode: str, text: str, system: str | None = None) -> tuple[str, str]:
-    """(저장 kind, 결과 본문)을 돌려준다."""
+def generate(mode: str, text: str, world: str = "", system: str | None = None) -> tuple[str, str]:
+    """(저장 kind, 결과 본문)을 돌려준다. system 지정 시 그것이 우선(사용자 마스터프롬프트)."""
     if mode not in MODES:
         raise ValueError(f"알 수 없는 생성 모드: {mode}")
     kind, temp, max_tokens, instr = MODES[mode]
     user = f"{instr}\n\n[원문]\n{text or '(빈 초안)'}"
-    out = client.chat(system or SYSTEM, user, temperature=temp, max_tokens=max_tokens)
+    out = client.chat(system or build_system(world), user, temperature=temp, max_tokens=max_tokens)
     return kind, out
