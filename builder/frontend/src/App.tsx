@@ -1,6 +1,6 @@
-import { AppShell } from "./app/AppShell";
+import { WriterShell } from "./app/WriterShell";
 
-// 조립된 앱 셸. (컴포넌트 갤러리는 src/gallery/Gallery.tsx 에 보존)
+// Creator — 작가 워크스테이션. (기능1 빌더 AppShell·갤러리는 src/app·src/gallery 에 보존)
 export default function App() {
-  return <AppShell />;
+  return <WriterShell />;
 }
