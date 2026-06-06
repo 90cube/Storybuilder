@@ -13,13 +13,12 @@ const TOGGLES: { mode: string; label: string }[] = [
 
 export function WriterShell() {
   const api = useCreator();
-  const [projectId, setProjectId] = useState<number | null>(null);
-  const [chapters, setChapters] = useState<Chapter[]>([]);
+  const [expanded, setExpanded] = useState<Set<number>>(new Set());
+  const [chByProj, setChByProj] = useState<Record<number, Chapter[]>>({});
   const [active, setActive] = useState<ChapterDetail | null>(null);
   const [text, setText] = useState("");
   const [saved, setSaved] = useState<string>("");
   const [newProj, setNewProj] = useState("");
-  const [newChap, setNewChap] = useState("");
   const [busy, setBusy] = useState<string>("");
   const [result, setResult] = useState<{ kind: string; text: string } | null>(null);
   const [cands, setCands] = useState<{ name: string; description?: string }[] | null>(null);
@@ -30,18 +29,34 @@ export function WriterShell() {
   const refreshDb = useCallback(async () => { try { setDbEnts(await api.graphEntities()); } catch { /* */ } }, [api.graphEntities]);
   useEffect(() => { refreshDb(); }, [refreshDb]);
 
-  const refreshChapters = useCallback(async (pid: number) => {
-    setChapters(await api.listChapters(pid));
+  const loadChapters = useCallback(async (pid: number) => {
+    const cs = await api.listChapters(pid);
+    setChByProj((m) => ({ ...m, [pid]: cs }));
   }, [api.listChapters]);
-
+  const toggleProject = (pid: number) => setExpanded((s) => {
+    const n = new Set(s);
+    if (n.has(pid)) n.delete(pid);
+    else { n.add(pid); loadChapters(pid); }
+    return n;
+  });
+  // 첫 프로젝트 자동 펼침
   useEffect(() => {
-    if (projectId == null && api.projects.length) setProjectId(api.projects[0].id);
-  }, [api.projects, projectId]);
-  useEffect(() => { if (projectId != null) refreshChapters(projectId).catch(() => {}); }, [projectId, refreshChapters]);
+    if (api.projects.length && expanded.size === 0) {
+      const pid = api.projects[0].id;
+      setExpanded(new Set([pid])); loadChapters(pid);
+    }
+  }, [api.projects, expanded.size, loadChapters]);
 
   const openChapter = async (id: number) => {
     const d = await api.getChapter(id);
     setActive(d); setText(d.texts.draft?.text ?? ""); setSaved("불러옴");
+    setCands(null); setCanon(null); setResult(null);
+  };
+  const addChapter = async (pid: number) => {
+    const r = await api.createChapter(pid, "새 화") as { id: number };
+    setExpanded((s) => new Set(s).add(pid));
+    await loadChapters(pid);
+    openChapter(r.id);
   };
 
   // 10초 무동작 자동저장
@@ -115,44 +130,47 @@ export function WriterShell() {
   const over = text.length > DRAFT_TARGET_CHARS;
 
   const left = (
-    <Panel title="프로젝트 · 화" className={w.fill}>
+    <Panel title="탐색기" className={w.fill}>
       <div className={w.newRow}>
         <Input value={newProj} onChange={(e) => setNewProj(e.target.value)} placeholder="새 프로젝트" />
         <Button onClick={async () => { if (newProj.trim()) { await api.createProject(newProj.trim()); setNewProj(""); } }}>+</Button>
       </div>
       <div className={w.tree}>
-        {api.projects.map((p) => (
-          <div key={p.id} className={w.item} data-on={p.id === projectId} onClick={() => setProjectId(p.id)}>
-            <span className={w.name}>{p.title}</span>
-          </div>
-        ))}
-      </div>
-      {projectId != null && (
-        <>
-          <div className={w.projHead}>화 (chapter)</div>
-          <div className={w.newRow}>
-            <Input value={newChap} onChange={(e) => setNewChap(e.target.value)} placeholder="새 화 제목" />
-            <Button onClick={async () => { if (newChap.trim()) { await api.createChapter(projectId, newChap.trim()); setNewChap(""); refreshChapters(projectId); } }}>+</Button>
-          </div>
-          <div className={w.tree}>
-            {chapters.map((c) => (
-              <div key={c.id} className={w.item} data-on={active?.chapter.id === c.id} onClick={() => openChapter(c.id)}>
-                <span className={w.name}>{c.title || `(${c.id})`}</span>
-                <span className={w.badge}>{c.state}</span>
+        {api.projects.map((p) => {
+          const open = expanded.has(p.id);
+          const chs = chByProj[p.id] ?? [];
+          return (
+            <div key={p.id}>
+              <div className={w.row} onClick={() => toggleProject(p.id)}>
+                <span className={w.chev}>{open ? "▾" : "▸"}</span>
+                <span className={w.ic}>📁</span>
+                <span className={w.name}>{p.title}</span>
+                <button className={w.addBtn} title="새 화 추가"
+                  onClick={(e) => { e.stopPropagation(); addChapter(p.id); }}>＋</button>
               </div>
-            ))}
-          </div>
-        </>
-      )}
+              {open && chs.map((c) => (
+                <div key={c.id} className={w.row} data-on={active?.chapter.id === c.id}
+                  style={{ paddingLeft: 28 }} onClick={() => openChapter(c.id)}>
+                  <span className={w.ic}>📄</span>
+                  <span className={w.name}>{c.title || `(${c.id})`}</span>
+                  <span className={w.badge}>{c.state}</span>
+                </div>
+              ))}
+              {open && !chs.length && <div className={w.empty}>화 없음 — ＋로 추가</div>}
+            </div>
+          );
+        })}
+      </div>
       <div className={w.projHead}>DB · 엔티티 ({dbEnts.length})</div>
       <div className={w.tree}>
         {dbEnts.slice(0, 60).map((e) => (
-          <div key={e.id} className={w.item}>
+          <div key={e.id} className={w.row}>
+            <span className={w.ic}>◆</span>
             <span className={w.name}>{e.name}</span>
             <span className={w.badge} style={{ color: e.source === "canon" ? "var(--jade)" : "var(--text-mut)" }}>{e.source}</span>
           </div>
         ))}
-        {!dbEnts.length && <div className={w.charMeta} style={{ padding: "4px 8px" }}>아직 등록된 엔티티 없음</div>}
+        {!dbEnts.length && <div className={w.empty}>아직 등록된 엔티티 없음</div>}
       </div>
     </Panel>
   );

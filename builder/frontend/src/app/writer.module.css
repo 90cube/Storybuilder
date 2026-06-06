@@ -12,6 +12,19 @@
 .item .name { color: var(--text); font-size: var(--fs-sm); flex: 1; }
 .item .badge { font: 600 10px/1 var(--font-mono); color: var(--ember-b); }
 
+/* VS Code 풍 트리 행 */
+.row { display: flex; align-items: center; gap: 5px; padding: 4px 8px; border-radius: 4px; cursor: pointer; border-left: 2px solid transparent; }
+.row:hover { background: var(--ink-750); }
+.row:hover .addBtn { opacity: 1; }
+.row[data-on="true"] { background: var(--ink-700); border-left-color: var(--ember); }
+.chev { width: 12px; color: var(--text-mut); font-size: 10px; flex: none; text-align: center; }
+.ic { font-size: 12px; flex: none; opacity: .85; }
+.row .name { color: var(--text); font-size: var(--fs-sm); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row .badge { font: 600 9px/1 var(--font-mono); color: var(--text-mut); flex: none; }
+.addBtn { opacity: 0; background: none; border: none; color: var(--ember-b); cursor: pointer; font-size: 14px; line-height: 1; padding: 0 2px; flex: none; transition: opacity var(--dur) var(--ease); }
+.addBtn:hover { color: var(--ember-bright); }
+.empty { padding: 4px 8px 4px 28px; color: var(--text-mut); font-size: var(--fs-xs); font-style: italic; }
+
 /* 중앙: 집필 */
 .editorWrap { display: flex; flex-direction: column; height: 100%; min-height: 0; padding: 0; }
 .titleInput { background: transparent; border: none; border-bottom: 1px solid var(--line); color: #fff; font: 600 var(--fs-lg)/1.4 var(--font-display); padding: 14px 20px; outline: none; }
