@@ -12,6 +12,10 @@
 editor/build/
 editor/**/*.exe
 editor/**/*.test
+# 컴파일된 리눅스 바이너리(확장자 없음) + 스크래치 디버그 파일
+editor/storybuilder-linux
+editor/migrate-linux
+editor/test_query.go
 # 모든 DB 파일 (어느 위치든)
 *.db
 *.sqlite
