@@ -172,6 +172,12 @@ def edit_season(sid: int, body: ProjectIn):
     repo.rename_season(sid, body.title); return {"ok": True}
 
 
+@router.put("/seasons/{sid}/move")
+def move_season(sid: int, project_id: int):
+    """시즌을 다른 작품으로 이동(소속 화 포함)."""
+    repo.move_season(sid, project_id); return {"ok": True}
+
+
 @router.delete("/seasons/{sid}")
 def del_season(sid: int):
     repo.delete_season(sid); return {"ok": True}
@@ -180,6 +186,12 @@ def del_season(sid: int):
 @router.put("/chapters/{cid}")
 def edit_chapter(cid: int, body: ProjectIn):
     repo.rename_chapter(cid, body.title); return {"ok": True}
+
+
+@router.put("/chapters/{cid}/move")
+def move_chapter(cid: int, season_id: int):
+    """화를 다른 시즌으로 이동(대상 시즌의 작품으로 귀속)."""
+    repo.move_chapter(cid, season_id); return {"ok": True}
 
 
 @router.delete("/chapters/{cid}")

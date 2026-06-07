@@ -6,6 +6,7 @@ import { CHAPTER_AUTOSAVE_MS, DRAFT_TARGET_CHARS, ANALYZE_DEBOUNCE_MS } from "..
 import { stateIdx, canAdvance, reached } from "../lib/pipeline";
 import { EntityEditor } from "./EntityEditor";
 import { LaneCanvas } from "./LaneCanvas";
+import { RowMenu } from "./RowMenu";
 import w from "./writer.module.css";
 
 type CenterMode = "write" | "entities" | "canvas";
@@ -119,6 +120,23 @@ export function WriterShell() {
     await api.deleteChapter(c.id);
     if (active?.chapter.id === c.id) setActive(null);
     loadChapters(c.season_id);
+  };
+  const onRenameChapter = async (c: Chapter) => {
+    const t = window.prompt("화 제목", c.title); if (t == null || !t.trim()) return;
+    await api.renameChapter(c.id, t.trim());
+    loadChapters(c.season_id);
+    if (active?.chapter.id === c.id) setActive({ ...active, chapter: { ...active.chapter, title: t.trim() } });
+  };
+  const onMoveSeason = async (s: Season, projectId: number) => {
+    await api.moveSeason(s.id, projectId);
+    loadSeasons(s.project_id); loadSeasons(projectId);
+    setExpProj((x) => new Set(x).add(projectId));
+  };
+  const onMoveChapter = async (c: Chapter, seasonId: number) => {
+    await api.moveChapter(c.id, seasonId);
+    loadChapters(c.season_id); loadChapters(seasonId);
+    setExpSeason((x) => new Set(x).add(seasonId));
+    if (active?.chapter.id === c.id) setActive({ ...active, chapter: { ...active.chapter, season_id: seasonId } });
   };
   const saveTitle = async () => {
     if (!active) return;
@@ -255,10 +273,12 @@ export function WriterShell() {
                 <span className={w.ic}>📁</span>
                 <span className={w.name} title="더블클릭=이름변경"
                   onDoubleClick={(e) => { e.stopPropagation(); onRenameProject(p); }}>{p.title}</span>
-                <button className={w.addBtn} title="새 시즌"
-                  onClick={(e) => { e.stopPropagation(); addSeason(p.id); }}>＋</button>
-                <button className={w.delBtn} title="작품 삭제"
-                  onClick={(e) => { e.stopPropagation(); onDelProject(p); }}>🗑</button>
+                <RowMenu items={[
+                  { label: "＋ 새 시즌", onClick: () => addSeason(p.id) },
+                  { label: "이름 변경", onClick: () => onRenameProject(p) },
+                  { label: "", sep: true },
+                  { label: "작품 삭제", danger: true, onClick: () => onDelProject(p) },
+                ]} />
               </div>
               {pOpen && seasons.map((s) => {
                 const sOpen = expSeason.has(s.id);
@@ -270,10 +290,15 @@ export function WriterShell() {
                       <span className={w.ic}>📂</span>
                       <span className={w.name} title="더블클릭=이름변경"
                         onDoubleClick={(e) => { e.stopPropagation(); onRenameSeason(s); }}>{s.title}</span>
-                      <button className={w.addBtn} title="새 화"
-                        onClick={(e) => { e.stopPropagation(); addChapter(s.id); }}>＋</button>
-                      <button className={w.delBtn} title="시즌 삭제"
-                        onClick={(e) => { e.stopPropagation(); onDelSeason(s); }}>🗑</button>
+                      <RowMenu items={[
+                        { label: "＋ 새 화", onClick: () => addChapter(s.id) },
+                        { label: "이름 변경", onClick: () => onRenameSeason(s) },
+                        { label: "다른 작품으로 이동",
+                          submenu: api.projects.filter((pp) => pp.id !== s.project_id)
+                            .map((pp) => ({ label: pp.title, onClick: () => onMoveSeason(s, pp.id) })) },
+                        { label: "", sep: true },
+                        { label: "시즌 삭제", danger: true, onClick: () => onDelSeason(s) },
+                      ]} />
                     </div>
                     {sOpen && chs.map((c) => (
                       <div key={c.id} className={w.row} data-on={active?.chapter.id === c.id}
@@ -281,8 +306,14 @@ export function WriterShell() {
                         <span className={w.ic}>📄</span>
                         <span className={w.name}>{c.title || `(${c.id})`}</span>
                         <span className={w.badge}>{c.state}</span>
-                        <button className={w.delBtn} title="화 삭제"
-                          onClick={(e) => { e.stopPropagation(); onDelChapter(c); }}>🗑</button>
+                        <RowMenu items={[
+                          { label: "이름 변경", onClick: () => onRenameChapter(c) },
+                          { label: "다른 시즌으로 이동",
+                            submenu: (seasonsByProj[c.project_id] ?? []).filter((ss) => ss.id !== c.season_id)
+                              .map((ss) => ({ label: ss.title, onClick: () => onMoveChapter(c, ss.id) })) },
+                          { label: "", sep: true },
+                          { label: "화 삭제", danger: true, onClick: () => onDelChapter(c) },
+                        ]} />
                       </div>
                     ))}
                     {sOpen && !chs.length && <div className={w.empty} style={{ paddingLeft: 48 }}>화 없음 — ＋</div>}

@@ -102,7 +102,10 @@ export function useCreator() {
   const deleteSeason = useCallback((id: number) => del(`/api/seasons/${id}`), []);
   const renameChapter = useCallback((id: number, title: string) => put(`/api/chapters/${id}`, { title }), []);
   const deleteChapter = useCallback((id: number) => del(`/api/chapters/${id}`), []);
+  const moveSeason = useCallback((id: number, projectId: number) => put(`/api/seasons/${id}/move?project_id=${projectId}`, {}), []);
+  const moveChapter = useCallback((id: number, seasonId: number) => put(`/api/chapters/${id}/move?season_id=${seasonId}`, {}), []);
 
   return { projects, states, reloadProjects: loadProjects, createProject, listSeasons, createSeason, listChapters, createChapter, getChapter, saveText, advance, gen, detect, assist, registerEntity, ppPolish, canonDiff, canonPromote, graphEntities, analyze, renameProject, deleteProject, renameSeason, deleteSeason, renameChapter, deleteChapter,
-    getSchema, listEntitiesByType, getEntityDetail, saveEntity, deleteEntity, addRelationTyped, deleteRelation, addTimeline, addSecret };
+    getSchema, listEntitiesByType, getEntityDetail, saveEntity, deleteEntity, addRelationTyped, deleteRelation, addTimeline, addSecret,
+    moveSeason, moveChapter };
 }

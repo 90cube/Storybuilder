@@ -67,6 +67,15 @@ def delete_season(sid: int) -> None:
         c.execute("DELETE FROM seasons WHERE id=?", (sid,))
 
 
+def move_season(sid: int, project_id: int) -> None:
+    """시즌을 다른 작품으로 이동 — 소속 화들의 project_id까지 함께 갱신."""
+    with get_conn() as c:
+        nxt = c.execute("SELECT COALESCE(MAX(idx),0)+1 v FROM seasons WHERE project_id=?",
+                        (project_id,)).fetchone()["v"]
+        c.execute("UPDATE seasons SET project_id=?, idx=? WHERE id=?", (project_id, nxt, sid))
+        c.execute("UPDATE chapters SET project_id=? WHERE season_id=?", (project_id, sid))
+
+
 # ── chapters (시즌 소속, + 초기 run/draft) ──
 def create_chapter(season_id: int, title: str = "", idx: int = 0) -> int:
     with get_conn() as c:
@@ -107,6 +116,18 @@ def _wipe_chapters(c, cids: list[int]) -> None:
 def delete_chapter(cid: int) -> None:
     with get_conn() as c:
         _wipe_chapters(c, [cid])
+
+
+def move_chapter(cid: int, season_id: int) -> None:
+    """화를 다른 시즌으로 이동 — 대상 시즌의 작품(project_id)까지 따라간다."""
+    with get_conn() as c:
+        s = c.execute("SELECT project_id FROM seasons WHERE id=?", (season_id,)).fetchone()
+        if not s:
+            raise ValueError("season not found")
+        nxt = c.execute("SELECT COALESCE(MAX(idx),0)+1 v FROM chapters WHERE season_id=?",
+                        (season_id,)).fetchone()["v"]
+        c.execute("UPDATE chapters SET season_id=?, project_id=?, idx=? WHERE id=?",
+                  (season_id, s["project_id"], nxt, cid))
 
 
 def get_chapter(chapter_id: int) -> dict | None:
