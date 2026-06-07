@@ -44,6 +44,7 @@ CREATE TABLE IF NOT EXISTS edit_log (
 -- ── 원고 / 파이프라인 ──
 CREATE TABLE IF NOT EXISTS projects (
   id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL,
+  style_guide TEXT,
   created_at TEXT, updated_at TEXT
 );
 -- 시즌(부) — 작품과 화 사이 계층

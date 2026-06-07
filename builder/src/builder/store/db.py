@@ -34,6 +34,9 @@ def _migrate(conn) -> None:
     ecols = [r["name"] for r in conn.execute("PRAGMA table_info(entities)")]
     if "data_json" not in ecols:
         conn.execute("ALTER TABLE entities ADD COLUMN data_json TEXT")
+    pcols = [r["name"] for r in conn.execute("PRAGMA table_info(projects)")]
+    if "style_guide" not in pcols:
+        conn.execute("ALTER TABLE projects ADD COLUMN style_guide TEXT")
     _migrate_project_scope(conn)
 
 

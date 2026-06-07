@@ -194,3 +194,24 @@ def set_state(chapter_id: int, state: str, payload_json: str | None = None) -> N
     with get_conn() as c:
         c.execute("""UPDATE pipeline_runs SET state=?, payload_json=COALESCE(?,payload_json), updated_at=?
                      WHERE chapter_id=?""", (state, payload_json, _now(), chapter_id))
+
+
+def get_style(pid: int) -> str:
+    """작품 문체 지침(없으면 빈 문자열)."""
+    with get_conn() as c:
+        r = c.execute("SELECT style_guide FROM projects WHERE id=?", (pid,)).fetchone()
+        return (r["style_guide"] or "") if r and r["style_guide"] is not None else ""
+
+
+def set_style(pid: int, text: str) -> None:
+    with get_conn() as c:
+        c.execute("UPDATE projects SET style_guide=?, updated_at=? WHERE id=?", (text, _now(), pid))
+
+
+def latest_prose(pid: int, limit: int = 800) -> str:
+    """작품에서 가장 최근 원고 산문 일부(문체 자동 샘플용)."""
+    with get_conn() as c:
+        r = c.execute("""SELECT m.text FROM manuscripts m JOIN chapters ch ON ch.id=m.chapter_id
+                         WHERE ch.project_id=? AND m.text IS NOT NULL AND m.text!=''
+                         ORDER BY m.id DESC LIMIT 1""", (pid,)).fetchone()
+        return (r["text"][:limit] if r else "")
