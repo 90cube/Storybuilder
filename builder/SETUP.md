@@ -38,10 +38,10 @@ npm install
 PowerShell에서 **분리 실행**(창이 닫혀도 살아있게). `&`/`nohup` 으로 띄우면 죽는다.
 
 ```powershell
-Start-Process -WindowStyle Hidden -FilePath "llama-server.exe" -ArgumentList @(
+Start-Process -WindowStyle Hidden -FilePath "E:\llama.cpp\llama-server.exe" -ArgumentList @(
   "-m", "E:\models\gemma-4-31B-it-Q4_K_M.unsloth.gguf",
   "--host", "127.0.0.1", "--port", "8080",
-  "-ngl", "999", "-c", "8192"
+  "-ngl", "999", "-fa", "on", "-c", "24576"
 )
 ```
 
@@ -51,6 +51,10 @@ Start-Process -WindowStyle Hidden -FilePath "llama-server.exe" -ArgumentList @(
 curl http://127.0.0.1:8080/health   # {"status":"ok"}
 ```
 
+> ⚠️ **KV 캐시 양자화(`--cache-type-k/v q8_0`) 쓰지 말 것** — 긴 한국어 생성에서 조사가
+> 간헐적으로 깨진다("라이터가은" 같은 토큰 손상). **f16 캐시(기본)** 로 띄울 것.
+> `-c 24576` 은 완성본(6천자 입력+1만2천자 출력)을 감당하는 컨텍스트. VRAM 부족 시 `-c 16384`.
+>
 > ⚠️ **추론형(reasoning) 모델 주의** — 이 모델은 `enable_thinking:false` 를 보내지 않으면
 > `content` 가 비고 출력이 `reasoning_content` 로 샌다. Creator의 `llm/client.py` 가
 > `chat_template_kwargs:{enable_thinking:false}` 를 항상 실어 보내므로 클라이언트는 신경 쓸 게 없다.
