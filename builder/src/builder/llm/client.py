@@ -17,6 +17,9 @@ def chat(system: str, user: str, temperature: float = 0.7,
         ],
         "temperature": temperature,
         "max_tokens": max_tokens,
+        # 디제너레이션·토큰 깨짐 가드(특히 긴 한국어 생성). 서버 기본값 의존 제거.
+        "min_p": 0.05,
+        "repeat_penalty": 1.1,
         "chat_template_kwargs": {"enable_thinking": False},  # reasoning 끄기 → content 직출력
         "stream": False,
     }).encode("utf-8")
