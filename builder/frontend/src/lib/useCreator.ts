@@ -83,6 +83,16 @@ export function useCreator() {
     post(`/api/analyze/${chapter_id}`, {}) as Promise<{ events: CanonItem[]; entities: CanonItem[]; relations: CanonItem[] }>, []);
   const stageToCausal = useCallback((chapter_id: number, a: { events: CanonItem[]; entities: CanonItem[]; relations: CanonItem[] }) =>
     post(`/api/analyze/${chapter_id}/commit`, a) as Promise<{ events: number; entities: number; relations: number }>, []);
+  const assistEdit = useCallback((chapter_id: number, body: { selected: string; before: string; after: string; style_source: string }) =>
+    post("/api/assist/edit", { chapter_id, ...body }) as Promise<{
+      rewrites: string[]; continuations: string[];
+      conflicts: { entity?: string; issue?: string; suggestion?: string }[];
+      mode: string; entities: { added: CanonItem[]; changed: CanonItem[] };
+    }>, []);
+  const assistTranslate = useCallback((chapter_id: number, text: string) =>
+    post("/api/assist/translate", { chapter_id, text }) as Promise<{ text: string }>, []);
+  const getStyle = useCallback((pid: number) => j<{ text: string }>(`/api/projects/${pid}/style`), []);
+  const setStyle = useCallback((pid: number, text: string) => put(`/api/projects/${pid}/style`, { text }), []);
   // ── 에디터 흡수: 스키마·엔티티·관계·타임라인·비밀·내보내기 ──
   const getSchema = useCallback(() => j<SchemaInfo>("/api/schema"), []);
   const listEntitiesByType = useCallback((type: string, project: number) =>
@@ -109,5 +119,5 @@ export function useCreator() {
 
   return { projects, states, reloadProjects: loadProjects, createProject, listSeasons, createSeason, listChapters, createChapter, getChapter, saveText, advance, gen, detect, assist, registerEntity, ppPolish, canonDiff, canonPromote, graphEntities, analyze, renameProject, deleteProject, renameSeason, deleteSeason, renameChapter, deleteChapter,
     getSchema, listEntitiesByType, getEntityDetail, saveEntity, deleteEntity, addRelationTyped, deleteRelation, addTimeline, addSecret,
-    moveSeason, moveChapter, stageToCausal };
+    moveSeason, moveChapter, stageToCausal, assistEdit, assistTranslate, getStyle, setStyle };
 }
