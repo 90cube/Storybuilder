@@ -139,3 +139,26 @@ def upsert_event(ev: dict, project_id: int, who: str = "creator", protect: bool 
                    json.dumps(cout, ensure_ascii=False), json.dumps(chars, ensure_ascii=False),
                    ev.get("source", "fan"), ev.get("status", "pending"), _now(), who))
         return eid
+
+
+def entities_in_text(project_id: int, text: str, limit: int = 12) -> list[dict]:
+    """본문에 이름이 등장하는 (작품) 엔티티 + 말투/성격 카드(부분수정 프롬프트 주입용)."""
+    out: list[dict] = []
+    with get_conn() as c:
+        rows = c.execute(
+            "SELECT name,category,description,data_json FROM entities WHERE project_id=? ORDER BY name",
+            (project_id,)).fetchall()
+    for r in rows:
+        nm = r["name"]
+        if nm and nm in text:
+            d = json.loads(r["data_json"] or "{}")
+            persona = d.get("personality_traits") or d.get("mbti") or ""
+            if isinstance(persona, list):
+                persona = ", ".join(persona)
+            out.append({"name": nm, "category": r["category"] or "",
+                        "speech_style": d.get("speech_style", ""),
+                        "personality": persona,
+                        "summary": r["description"] or d.get("summary", "")})
+            if len(out) >= limit:
+                break
+    return out
