@@ -3,11 +3,12 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from builder.store import repo, graph
+from builder.store import repo, graph, entity
 from builder.domain import pipeline
 from builder.extract import service as extract_svc
 from builder.postproc import service as post_svc
 from builder.canon import diff as canon
+from builder.gen import statecap
 
 router = APIRouter()
 
@@ -62,22 +63,37 @@ def pp_polish(chapter_id: int):
 
 @router.post("/canon/diff/{chapter_id}")
 def canon_diff(chapter_id: int):
-    """(강제 초기화) 완성본에서 노드/엣지 추출 + 현 DB와 3색 diff. →EXTRACT."""
+    """(강제 초기화) 완성본에서 노드/엣지 + 등장 인물 '이 화 시점 상태' 추출 → 3색 diff. →EXTRACT."""
     ch = repo.get_chapter(chapter_id)
     if not ch:
         raise HTTPException(404, "chapter not found")
+    pid = repo.project_of(chapter_id)
+    world = repo.world_of(chapter_id)
+    text = _final_text(ch)
     try:
-        ext = extract_svc.extract_from_text(_final_text(ch), world=repo.world_of(chapter_id))
+        ext = extract_svc.extract_from_text(text, world=world)
     except Exception as e:
         raise HTTPException(500, f"{type(e).__name__}: {e}")
-    d = canon.diff_against_graph(ext, repo.project_of(chapter_id))
+    states = []
+    try:  # 상태 캡처 실패해도 diff 자체는 진행 — 카드는 '추출된 엔티티'(신규 포함) 기준
+        cards, seen = [], set()
+        for e in ext.get("entities", []):
+            nm = (e.get("name") or "").strip()
+            if nm and nm not in seen:
+                seen.add(nm)
+                cards.append({"name": nm, "prev_state": entity.latest_state(graph._eid(pid, nm))})
+        states = statecap.capture(text, cards, world=world)
+    except Exception:
+        states = []
+    d = canon.diff_against_graph(ext, pid, states=states)
     repo.set_state(chapter_id, "EXTRACT")
     return {**d, "state": repo.get_state(chapter_id)}
 
 
 @router.post("/canon/promote")
 def canon_promote(body: PromoteIn):
-    """승인 항목을 canon 승격 + DB 반영(작품 한정). DB_SYNC2→CHAPTER_SAVE."""
-    res = canon.promote(body.entities, body.relations, repo.project_of(body.chapter_id), body.events)
+    """승인 항목을 canon 승격 + DB 반영(작품 한정) + 타임라인 기록. DB_SYNC2→CHAPTER_SAVE."""
+    res = canon.promote(body.entities, body.relations, repo.project_of(body.chapter_id),
+                        body.events, chapter_id=body.chapter_id)
     repo.set_state(body.chapter_id, "CHAPTER_SAVE")
     return {**res, "state": repo.get_state(body.chapter_id)}

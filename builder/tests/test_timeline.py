@@ -72,3 +72,26 @@ def test_diff_attaches_states():
     states = [{"name": "카인", "state": "분노", "change": "각성"}]
     d = canon.diff_against_graph(extracted, pid, states=states)
     assert d["entities"][0]["state"] == "분노" and d["entities"][0]["statechange"] == "각성"
+
+
+def test_api_diff_and_promote_timeline(monkeypatch):
+    _fresh()
+    from builder.gen import statecap
+    monkeypatch.setattr(statecap.client, "chat",
+                        lambda *a, **k: '[{"name":"카인","state":"분노","change":"각성"}]')
+    from builder.extract import service as ex
+    monkeypatch.setattr(ex, "extract_from_text",
+                        lambda *a, **k: {"entities": [{"name": "카인", "category": "인물"}], "relations": [], "events": []})
+    from builder.store import graph
+    from builder.api.app import create_app
+    from fastapi.testclient import TestClient
+    c = TestClient(create_app())
+    pid = c.post("/api/projects", json={"title": "작"}).json()["id"]
+    sid = c.get(f"/api/seasons?project={pid}").json()[0]["id"]
+    cid = c.post("/api/chapters", json={"season_id": sid, "title": "1화"}).json()["id"]
+    c.put(f"/api/chapter/{cid}/text", json={"text": "카인이 라이터를 주웠다."})
+    d = c.post(f"/api/canon/diff/{cid}", json={}).json()
+    assert d["entities"][0]["state"] == "분노"
+    c.post("/api/canon/promote", json={"chapter_id": cid, "entities": d["entities"], "relations": [], "events": []})
+    eid = f"{pid}:{graph._slug('카인')}"
+    assert c.get(f"/api/entity/{eid}").json()["timeline"][0]["state"] == "분노"
