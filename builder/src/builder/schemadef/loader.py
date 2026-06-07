@@ -63,6 +63,31 @@ def type_def(t: str) -> dict | None:
     return types().get(t)
 
 
+# 추출기(LLM)가 주는 한/영 카테고리 → 스키마 타입 키 별칭.
+CATEGORY_ALIASES: dict[str, str] = {
+    "인물": "character", "사람": "character", "person": "character", "char": "character",
+    "장소": "location", "지역": "location", "place": "location",
+    "사물": "item", "물건": "item", "아이템": "item", "object": "item",
+    "사건": "event", "이벤트": "event",
+    "개념": "concept", "컨셉": "concept",
+    "집단": "group", "무리": "group", "팀": "group",
+    "조직": "organization", "단체": "organization", "세력": "organization", "길드": "organization",
+}
+
+
+def normalize_category(cat: str | None) -> str:
+    """추출 카테고리(한/영 혼용)를 스키마 타입 키로 정규화. 매칭 실패 시 'character'."""
+    c = (cat or "").strip()
+    if not c:
+        return "character"
+    if c in types():
+        return c
+    low = c.lower()
+    if low in types():
+        return low
+    return CATEGORY_ALIASES.get(c) or CATEGORY_ALIASES.get(low) or "character"
+
+
 def form_fields(t: str) -> list[dict]:
     """폼에 그릴 필드(시스템 필드 제외)."""
     td = type_def(t)

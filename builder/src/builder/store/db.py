@@ -38,6 +38,15 @@ def _migrate(conn) -> None:
     if "style_guide" not in pcols:
         conn.execute("ALTER TABLE projects ADD COLUMN style_guide TEXT")
     _migrate_project_scope(conn)
+    _migrate_categories(conn)
+
+
+def _migrate_categories(conn) -> None:
+    """기존 엔티티의 한국어 category(인물·사물 등)를 스키마 타입 키(character·item…)로 정규화.
+    엔티티 편집기 탭이 타입 키로 필터하므로, 정규화해야 추출된 엔티티가 탭에 보인다."""
+    from builder.schemadef.loader import CATEGORY_ALIASES  # 지연 import(순수 모듈)
+    for alias, t in CATEGORY_ALIASES.items():
+        conn.execute("UPDATE entities SET category=? WHERE category=?", (t, alias))
 
 
 def _migrate_project_scope(conn) -> None:

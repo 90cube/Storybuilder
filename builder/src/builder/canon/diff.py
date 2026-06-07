@@ -4,6 +4,7 @@ change: 추가(신규) / 변경(기존 존재) / 충돌(tbg 모순 — 후속에
 """
 
 from builder.store import graph
+from builder.schemadef import loader
 
 
 def diff_against_graph(extracted: dict, project_id: int) -> dict:
@@ -27,7 +28,8 @@ def stage_draft(extracted: dict, project_id: int) -> dict:
     n_e = n_r = n_v = 0
     for e in extracted.get("entities", []):
         if (e.get("name") or "").strip():
-            graph.upsert_entity({**e, "source": "draft_auto", "status": "pending"}, project_id, protect=True)
+            graph.upsert_entity({**e, "category": loader.normalize_category(e.get("category")),
+                                 "source": "draft_auto", "status": "pending"}, project_id, protect=True)
             n_e += 1
     for v in extracted.get("events", []):
         if v.get("title") or v.get("name"):
@@ -46,7 +48,8 @@ def promote(entities: list[dict], relations: list[dict], project_id: int,
     """승인된 항목을 canon으로 승격(작품 한정, source=canon, status=confirmed). 사건은 인과 캔버스에 반영."""
     n_e = n_r = n_v = 0
     for e in entities:
-        graph.upsert_entity({**e, "source": "canon", "status": "confirmed"}, project_id)
+        graph.upsert_entity({**e, "category": loader.normalize_category(e.get("category")),
+                             "source": "canon", "status": "confirmed"}, project_id)
         n_e += 1
     for r in relations:
         if r.get("from") and r.get("to"):
