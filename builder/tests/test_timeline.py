@@ -46,3 +46,29 @@ def test_statecap_capture(monkeypatch):
                            world="작품")
     assert out == [{"name": "카인", "state": "각성, 분노", "change": "라이터를 주움"}]
     assert statecap.capture("x", [], world="작품") == []  # 카드 없으면 호출 없이 []
+
+
+def test_promote_writes_timeline():
+    _fresh()
+    from builder.store import repo, entity, graph
+    from builder.canon import diff as canon
+    pid = repo.create_project("작품")
+    sid = repo.list_seasons(pid)[0]["id"]
+    cid = repo.create_chapter(sid, "1화")
+    ents = [{"name": "카인", "category": "인물", "change": "추가",
+             "state": "각성, 분노", "statechange": "라이터를 주움"}]
+    canon.promote(ents, [], pid, [], chapter_id=cid)
+    eid = f"{pid}:{graph._slug('카인')}"
+    tl = entity.list_timeline(eid)
+    assert len(tl) == 1 and tl[0]["state"] == "각성, 분노" and tl[0]["chapter_id"] == cid
+
+
+def test_diff_attaches_states():
+    _fresh()
+    from builder.store import repo
+    from builder.canon import diff as canon
+    pid = repo.create_project("작품")
+    extracted = {"entities": [{"name": "카인"}], "relations": [], "events": []}
+    states = [{"name": "카인", "state": "분노", "change": "각성"}]
+    d = canon.diff_against_graph(extracted, pid, states=states)
+    assert d["entities"][0]["state"] == "분노" and d["entities"][0]["statechange"] == "각성"

@@ -3,18 +3,21 @@
 change: 추가(신규) / 변경(기존 존재) / 충돌(tbg 모순 — 후속에서 정밀화).
 """
 
-from builder.store import graph
+from builder.store import graph, repo, entity
 from builder.schemadef import loader
 
 
-def diff_against_graph(extracted: dict, project_id: int) -> dict:
+def diff_against_graph(extracted: dict, project_id: int, states: list[dict] | None = None) -> dict:
+    smap = {s.get("name"): s for s in (states or [])}
     known = graph.known_names(project_id)
     ents = []
     for e in extracted.get("entities", []):
         nm = (e.get("name") or "").strip()
         if not nm:
             continue
-        ents.append({**e, "change": "변경" if nm in known else "추가"})
+        st = smap.get(nm, {})
+        ents.append({**e, "change": "변경" if nm in known else "추가",
+                     "state": st.get("state", ""), "statechange": st.get("change", "")})
     rels = [{**r, "change": "추가"} for r in extracted.get("relations", [])]
     evs = [{**ev, "change": "추가"} for ev in extracted.get("events", [])]
     return {"entities": ents, "relations": rels, "events": evs}
@@ -44,12 +47,17 @@ def stage_draft(extracted: dict, project_id: int) -> dict:
 
 
 def promote(entities: list[dict], relations: list[dict], project_id: int,
-            events: list[dict] | None = None) -> dict:
-    """승인된 항목을 canon으로 승격(작품 한정, source=canon, status=confirmed). 사건은 인과 캔버스에 반영."""
+            events: list[dict] | None = None, chapter_id: int | None = None) -> dict:
+    """승인 항목을 canon 승격(작품 한정). chapter_id+엔티티 state가 있으면 타임라인 스냅샷도 기록."""
     n_e = n_r = n_v = 0
+    seq = repo.story_seq(chapter_id) if chapter_id else 0
+    era = repo.chapter_label(chapter_id) if chapter_id else ""
     for e in entities:
-        graph.upsert_entity({**e, "category": loader.normalize_category(e.get("category")),
-                             "source": "canon", "status": "confirmed"}, project_id)
+        eid = graph.upsert_entity({**e, "category": loader.normalize_category(e.get("category")),
+                                   "source": "canon", "status": "confirmed"}, project_id)
+        st = (e.get("state") or "").strip()
+        if chapter_id and st:
+            entity.upsert_timeline(eid, chapter_id, seq, era, st, e.get("statechange", ""))
         n_e += 1
     for r in relations:
         if r.get("from") and r.get("to"):
