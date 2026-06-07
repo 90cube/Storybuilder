@@ -3,7 +3,7 @@ import { Badge, Button, Input, Panel, Spinner, Toggle } from "../components/prim
 import { AspectLayout, ResizableSplit, StatusBar, Titlebar } from "../components/shell";
 import { useCreator, type Season, type Chapter, type ChapterDetail, type CanonItem, type GraphEntity } from "../lib/useCreator";
 import { CHAPTER_AUTOSAVE_MS, DRAFT_TARGET_CHARS, ANALYZE_DEBOUNCE_MS } from "../lib/const";
-import { stateIdx, canAdvance, reached } from "../lib/pipeline";
+import { stateIdx } from "../lib/pipeline";
 import { EntityEditor } from "./EntityEditor";
 import { LaneCanvas } from "./LaneCanvas";
 import { PartialEditBar } from "./PartialEditBar";
@@ -265,11 +265,12 @@ export function WriterShell() {
 
   // 현재 화 상태 기반 버튼 활성/강조 (실제 작업과 연동). active=강조(이미 그 단계 도달).
   const cur = active?.state ?? "";
+  // 생성 버튼은 '전이'가 아니라 '반복 가능한 도구' — 확정 후엔 다듬기·완성본을 항상 재실행 가능(무한루프).
   const genActions = cur === "DRAFT"
     ? [{ mode: "draft", label: "초안 재생성", enabled: !!active && !!text, active: false }]
     : [
-        { mode: "polish", label: "→ 다듬기", enabled: canAdvance(cur, "POLISH"), active: cur === "POLISH" },
-        { mode: "expand", label: "→ 완성본", enabled: canAdvance(cur, "EXPAND"), active: cur === "EXPAND" },
+        { mode: "polish", label: "→ 다듬기", enabled: !!active && !!text, active: cur === "POLISH" },
+        { mode: "expand", label: "→ 완성본", enabled: !!active && !!text, active: cur === "EXPAND" },
       ];
   const bottomBar = active && centerMode === "write" && !result && !cands && !canon && (
     sel
@@ -522,11 +523,11 @@ export function WriterShell() {
       <div className={w.toggles}>
         <span className={w.lbl}>구조화</span>
         <Button variant={cur === "CHAR_DETECT" ? "primary" : "default"}
-          disabled={!canAdvance(cur, "CHAR_DETECT") || !!busy} onClick={onDetect}>
+          disabled={!active || cur === "DRAFT" || !text || !!busy} onClick={onDetect}>
           {busy === "detect" ? <><Spinner /> 감지 중…</> : "캐릭터 감지"}
         </Button>
         <Button variant={cur === "EXTRACT" ? "primary" : "default"}
-          disabled={!active || !reached(cur, "CTX_RESET_B") || !!busy} onClick={onCanonDiff}>
+          disabled={!active || cur === "DRAFT" || !text || !!busy} onClick={onCanonDiff}>
           {busy === "canon" ? <><Spinner /> 추출 중…</> : "정사 추출·diff"}
         </Button>
       </div>
