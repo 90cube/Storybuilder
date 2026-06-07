@@ -54,3 +54,30 @@ def test_assist_edit_enrich_passes_cards(monkeypatch):
                     char_cards=[{"name": "카잔", "speech_style": "짧게", "personality": "냉정"}])
     assert "카잔" in seen["user"] and "짧게" in seen["user"]
     assert r["conflicts"][0]["entity"] == "카잔"
+
+
+def _client(monkeypatch):
+    _fresh_db()
+    from builder.gen import assist
+    monkeypatch.setattr(assist.client, "chat",
+                        lambda *a, **k: '{"rewrites":["다듬음"],"continuations":["이어"],"conflicts":[]}')
+    from builder.api.app import create_app
+    from fastapi.testclient import TestClient
+    return TestClient(create_app())
+
+
+def test_api_style_and_edit(monkeypatch):
+    c = _client(monkeypatch)
+    pid = c.post("/api/projects", json={"title": "작품C"}).json()["id"]
+    sid = c.get(f"/api/seasons?project={pid}").json()[0]["id"]
+    cid = c.post("/api/chapters", json={"season_id": sid, "title": "1화"}).json()["id"]
+    # 문체 저장/조회
+    assert c.put(f"/api/projects/{pid}/style", json={"text": "건조체"}).status_code == 200
+    assert c.get(f"/api/projects/{pid}/style").json()["text"] == "건조체"
+    # 부분수정(DRAFT 상태 → mode=draft)
+    r = c.post("/api/assist/edit", json={"chapter_id": cid, "selected": "원문",
+                                         "before": "앞", "after": "뒤", "style_source": "field"}).json()
+    assert r["mode"] == "draft"
+    assert r["rewrites"] == ["다듬음"] and r["continuations"] == ["이어"]
+    # 번역
+    assert "text" in c.post("/api/assist/translate", json={"chapter_id": cid, "text": "안녕"}).json()

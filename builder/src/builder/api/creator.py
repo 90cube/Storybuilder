@@ -12,6 +12,7 @@ from builder.chars import assist as chars_svc
 from builder.postproc import service as post_svc
 from builder.canon import diff as canon
 from builder import service as gen_svc
+from builder.gen import assist as assist_svc
 from builder.domain.insertion import NewCharacter
 
 router = APIRouter(prefix="/api")
@@ -76,6 +77,23 @@ class LaneCharIn(BaseModel):
     name: str
     concept: str = ""
     motive: str = ""
+
+
+class AssistEditIn(BaseModel):
+    chapter_id: int
+    selected: str
+    before: str = ""
+    after: str = ""
+    style_source: str = "field"  # field | auto | base
+
+
+class AssistTransIn(BaseModel):
+    chapter_id: int
+    text: str
+
+
+class StyleIn(BaseModel):
+    text: str
 
 
 class StageIn(BaseModel):
@@ -350,6 +368,59 @@ def analyze_commit(chapter_id: int, body: StageIn):
         raise HTTPException(404, "chapter not found")
     return canon.stage_draft(
         {"events": body.events, "entities": body.entities, "relations": body.relations}, pid)
+
+
+def _style_for(pid: int, source: str) -> str:
+    if source == "field":
+        return repo.get_style(pid)
+    if source == "auto":
+        return repo.latest_prose(pid)
+    return ""
+
+
+@router.post("/assist/edit")
+def assist_edit(body: AssistEditIn):
+    """선택 영역 부분수정. 상태로 mode 결정(DRAFT=다듬기 / 그외=완성본 보강+엔티티)."""
+    pid = repo.project_of(body.chapter_id)
+    if pid is None:
+        raise HTTPException(404, "chapter not found")
+    world = repo.world_of(body.chapter_id)
+    mode = "draft" if repo.get_state(body.chapter_id) == "DRAFT" else "enrich"
+    style = _style_for(pid, body.style_source)
+    cards = graph.entities_in_text(pid, f"{body.selected} {body.before} {body.after}")
+    try:
+        out = assist_svc.edit(body.selected, body.before, body.after, world=world,
+                              style=style, char_cards=cards, mode=mode)
+    except Exception as e:
+        raise HTTPException(500, f"{type(e).__name__}: {e}")
+    ents = {"added": [], "changed": []}
+    if mode == "enrich":
+        try:
+            d = canon.diff_against_graph(extract_svc.extract_from_text(body.selected, world=world), pid)
+            ents["added"] = [e for e in d["entities"] if e.get("change") == "추가"]
+            ents["changed"] = [e for e in d["entities"] if e.get("change") == "변경"]
+        except Exception:
+            pass
+    return {**out, "mode": mode, "entities": ents}
+
+
+@router.post("/assist/translate")
+def assist_translate(body: AssistTransIn):
+    try:
+        return {"text": assist_svc.translate(body.text, world=repo.world_of(body.chapter_id))}
+    except Exception as e:
+        raise HTTPException(500, f"{type(e).__name__}: {e}")
+
+
+@router.get("/projects/{pid}/style")
+def get_project_style(pid: int):
+    return {"text": repo.get_style(pid)}
+
+
+@router.put("/projects/{pid}/style")
+def put_project_style(pid: int, body: StyleIn):
+    repo.set_style(pid, body.text)
+    return {"ok": True}
 
 
 @router.get("/graph/entities")
