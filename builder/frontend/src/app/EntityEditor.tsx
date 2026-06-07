@@ -145,7 +145,16 @@ export function EntityEditor({ api, projectId, onChanged }: { api: Api; projectI
               {sel && typeDef.mixins.includes("timeline") && (
                 <div className={w.entSub}>
                   <div className={w.entSubH}>타임라인</div>
-                  {sel.timeline.map((t) => <div key={t.id} className={w.entSubRow}>{t.era} — {t.state}</div>)}
+                  {(() => {
+                    const auto = sel.timeline.filter((t) => t.chapter_id != null);
+                    const curId = auto.length ? auto.reduce((a, b) => (b.seq >= a.seq ? b : a)).id : -1;
+                    return [...sel.timeline].sort((a, b) => a.seq - b.seq).map((t) => (
+                      <div key={t.id} className={w.entSubRow}>
+                        <b>{t.era}</b> — {t.state}{t.note ? <span className={w.muted}> (변화: {t.note})</span> : null}
+                        {t.id === curId && <span className={w.tlNow}>현재</span>}
+                      </div>
+                    ));
+                  })()}
                   <div className={w.entSubAdd}>
                     <Input value={tl.era} placeholder="시대/시점" onChange={(e) => setTl({ ...tl, era: e.target.value })} />
                     <Input value={tl.state} placeholder="상태 변화" onChange={(e) => setTl({ ...tl, state: e.target.value })} />

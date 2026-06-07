@@ -172,3 +172,5 @@
 .peEnts { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding: 4px 8px; }
 .peEnt { font-size: var(--fs-sm); color: var(--text); background: var(--ink-700); border-radius: 999px; padding: 2px 8px; }
 .peReg { background: none; border: none; color: var(--jade); cursor: pointer; font-size: var(--fs-xs); margin-left: 4px; }
+.tlNow { margin-left: 6px; font: 700 9px/1 var(--font-mono); color: var(--ember-bright); background: var(--ember-glow); border: 1px solid var(--ember-deep); border-radius: 999px; padding: 2px 6px; }
+.canonState { color: var(--arcane); font-size: var(--fs-xs); }

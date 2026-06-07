@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 export type Project = { id: number; title: string };
 export type Season = { id: number; project_id: number; idx: number; title: string };
 export type Chapter = { id: number; project_id: number; season_id: number; idx: number; title: string; state: string };
-export type CanonItem = { name?: string; category?: string; from?: string; rel?: string; to?: string; title?: string; description?: string; change?: string };
+export type CanonItem = { name?: string; category?: string; from?: string; rel?: string; to?: string; title?: string; description?: string; change?: string; state?: string; statechange?: string };
 export type GraphEntity = { id: string; name: string; category: string; source: string; status: string };
 // ── 에디터 흡수: 스키마주도 타입 폼 ──
 export type SchemaField = { key: string; label: string; datatype: string; required?: boolean; values?: string[]; default?: unknown; system?: boolean };
@@ -13,7 +13,7 @@ export type RelationDef = { rel: string; inverse: string };
 export type SchemaInfo = { types: SchemaType[]; relations: RelationDef[] };
 export type EntityRow = { id: string; name: string; category: string; description: string; source: string; status: string; version: number; updated_at: string };
 export type RelationRow = { id: string; from_id: string; rel: string; to_id: string; pair_id: string };
-export type TimelineRow = { id: number; entity_id: string; seq: number; era: string; state: string; note: string };
+export type TimelineRow = { id: number; entity_id: string; chapter_id: number | null; seq: number; era: string; state: string; note: string };
 export type SecretRow = { id: number; entity_id: string; fact: string; known_by_json: string; reveal_at: string };
 export type EntityFull = { id: string; name: string; category: string; description: string; version: number; data: Record<string, unknown>; relations: RelationRow[]; timeline: TimelineRow[]; secrets: SecretRow[] };
 export type ChapterDetail = {
