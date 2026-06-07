@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS aliases ( project_id INTEGER, alias TEXT, entity_id T
 -- ── 엔티티 부품(에디터 믹스인: timeline·secrets) + 편집 로그 ──
 -- 시계열 누적: 엔티티별 상태 스냅샷(시간축 정렬)
 CREATE TABLE IF NOT EXISTS timeline (
-  id INTEGER PRIMARY KEY AUTOINCREMENT, project_id INTEGER, entity_id TEXT NOT NULL,
+  id INTEGER PRIMARY KEY AUTOINCREMENT, project_id INTEGER, chapter_id INTEGER, entity_id TEXT NOT NULL,
   seq INTEGER DEFAULT 0, era TEXT, state TEXT, note TEXT,
   created_at TEXT, created_by TEXT
 );

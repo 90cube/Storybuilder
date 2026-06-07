@@ -37,6 +37,9 @@ def _migrate(conn) -> None:
     pcols = [r["name"] for r in conn.execute("PRAGMA table_info(projects)")]
     if "style_guide" not in pcols:
         conn.execute("ALTER TABLE projects ADD COLUMN style_guide TEXT")
+    tcols = [r["name"] for r in conn.execute("PRAGMA table_info(timeline)")]
+    if "chapter_id" not in tcols:
+        conn.execute("ALTER TABLE timeline ADD COLUMN chapter_id INTEGER")
     _migrate_project_scope(conn)
     _migrate_categories(conn)
 

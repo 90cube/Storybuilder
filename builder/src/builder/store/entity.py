@@ -162,6 +162,30 @@ def add_timeline(eid: str, era: str, state: str, note: str = "", seq: int = 0,
         return rid
 
 
+def upsert_timeline(eid: str, chapter_id: int, seq: int, era: str, state: str,
+                    note: str = "", who: str = "creator") -> int:
+    """(entity_id, chapter_id) 멱등: 그 화 스냅샷 있으면 갱신, 없으면 삽입(자동 타임라인)."""
+    pid = pid_of(eid)
+    with get_conn() as c:
+        row = c.execute("SELECT id FROM timeline WHERE entity_id=? AND chapter_id=?",
+                        (eid, chapter_id)).fetchone()
+        if row:
+            c.execute("UPDATE timeline SET seq=?,era=?,state=?,note=?,created_at=? WHERE id=?",
+                      (seq, era, state, note, _now(), row["id"]))
+            return row["id"]
+        return c.execute("""INSERT INTO timeline(project_id,chapter_id,entity_id,seq,era,state,note,created_at,created_by)
+                            VALUES(?,?,?,?,?,?,?,?,?)""",
+                         (pid, chapter_id, eid, seq, era, state, note, _now(), who)).lastrowid
+
+
+def latest_state(eid: str) -> str:
+    """그 엔티티의 최신(자동) 타임라인 상태 — 다음 캡처에 직전 상태로 동봉."""
+    with get_conn() as c:
+        r = c.execute("SELECT state FROM timeline WHERE entity_id=? AND chapter_id IS NOT NULL "
+                      "ORDER BY seq DESC, id DESC LIMIT 1", (eid,)).fetchone()
+        return (r["state"] or "") if r else ""
+
+
 def list_timeline(eid: str) -> list[dict]:
     with get_conn() as c:
         return [dict(r) for r in c.execute(
