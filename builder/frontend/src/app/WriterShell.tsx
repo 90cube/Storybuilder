@@ -83,7 +83,7 @@ export function WriterShell() {
     const d = await api.getChapter(id);
     const draft = d.texts.draft?.text ?? "";
     setActive(d); setCurrentProj(d.chapter.project_id); setText(draft); textRef.current = draft; setSaved("불러옴");
-    setCands(null); setCanon(null); setResult(null);
+    setCands(null); setCanon(null); setResult(null); setSel(null); setStagedNote("");
   };
   const addSeason = async (pid: number) => {
     await api.createSeason(pid);
