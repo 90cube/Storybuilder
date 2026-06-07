@@ -184,6 +184,20 @@ def project_of(chapter_id: int) -> int | None:
         return r["project_id"] if r else None
 
 
+def story_seq(chapter_id: int) -> int:
+    """스토리 순서 정수 = season.idx*1000000 + chapter.id (시즌·생성 순서 단조). 타임라인 정렬/'현재'용."""
+    with get_conn() as c:
+        r = c.execute("""SELECT COALESCE(s.idx,0) sidx, ch.id cid FROM chapters ch
+                         LEFT JOIN seasons s ON s.id=ch.season_id WHERE ch.id=?""", (chapter_id,)).fetchone()
+        return (r["sidx"] * 1000000 + r["cid"]) if r else 0
+
+
+def chapter_label(chapter_id: int) -> str:
+    with get_conn() as c:
+        r = c.execute("SELECT title FROM chapters WHERE id=?", (chapter_id,)).fetchone()
+        return (r["title"] or f"화 {chapter_id}") if r and r["title"] else f"화 {chapter_id}"
+
+
 def get_state(chapter_id: int) -> str:
     with get_conn() as c:
         r = c.execute("SELECT state FROM pipeline_runs WHERE chapter_id=?", (chapter_id,)).fetchone()
