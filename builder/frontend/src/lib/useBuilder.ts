@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 
 export type EventDto = {
   id: string; title: string; era: string; sequence: number;
-  causal_out: string[]; characters: string[];
+  causal_out: string[]; characters: string[]; source?: string;
 };
 export type Plot = { key: string; name: string };
 export type Validation = { is_valid: boolean; errors: string[]; warnings: string[] };

@@ -81,6 +81,8 @@ export function useCreator() {
   const graphEntities = useCallback((project: number) => j<GraphEntity[]>(`/api/graph/entities?project=${project}`), []);
   const analyze = useCallback((chapter_id: number) =>
     post(`/api/analyze/${chapter_id}`, {}) as Promise<{ events: CanonItem[]; entities: CanonItem[]; relations: CanonItem[] }>, []);
+  const stageToCausal = useCallback((chapter_id: number, a: { events: CanonItem[]; entities: CanonItem[]; relations: CanonItem[] }) =>
+    post(`/api/analyze/${chapter_id}/commit`, a) as Promise<{ events: number; entities: number; relations: number }>, []);
   // ── 에디터 흡수: 스키마·엔티티·관계·타임라인·비밀·내보내기 ──
   const getSchema = useCallback(() => j<SchemaInfo>("/api/schema"), []);
   const listEntitiesByType = useCallback((type: string, project: number) =>
@@ -107,5 +109,5 @@ export function useCreator() {
 
   return { projects, states, reloadProjects: loadProjects, createProject, listSeasons, createSeason, listChapters, createChapter, getChapter, saveText, advance, gen, detect, assist, registerEntity, ppPolish, canonDiff, canonPromote, graphEntities, analyze, renameProject, deleteProject, renameSeason, deleteSeason, renameChapter, deleteChapter,
     getSchema, listEntitiesByType, getEntityDetail, saveEntity, deleteEntity, addRelationTyped, deleteRelation, addTimeline, addSecret,
-    moveSeason, moveChapter };
+    moveSeason, moveChapter, stageToCausal };
 }

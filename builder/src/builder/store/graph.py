@@ -40,15 +40,20 @@ def list_entities(project_id: int, limit: int = 2000) -> list[dict]:
             "WHERE project_id=? ORDER BY name LIMIT ?", (project_id, limit))]
 
 
-def upsert_entity(ent: dict, project_id: int, who: str = "creator") -> str:
-    """이름 기준 upsert(작품 한정). 신규=insert, 기존=description 보강 + version++."""
+def upsert_entity(ent: dict, project_id: int, who: str = "creator", protect: bool = False) -> str:
+    """이름 기준 upsert(작품 한정). 신규=insert, 기존=description 보강 + version++.
+
+    protect=True면 이미 확정(status='confirmed')된 행은 덮어쓰지 않는다(정사 보호).
+    """
     name = (ent.get("name") or "").strip()
     if not name:
         raise ValueError("entity name required")
     eid = ent.get("id") or _eid(project_id, name)
     with get_conn() as c:
-        row = c.execute("SELECT id FROM entities WHERE id=? OR (project_id=? AND name=?)",
+        row = c.execute("SELECT id,status FROM entities WHERE id=? OR (project_id=? AND name=?)",
                         (eid, project_id, name)).fetchone()
+        if row and protect and row["status"] == "confirmed":
+            return row["id"]
         payload = (
             ent.get("category", "character"),
             ent.get("description", ""),
@@ -71,10 +76,11 @@ def upsert_entity(ent: dict, project_id: int, who: str = "creator") -> str:
         return eid
 
 
-def add_relation(from_name: str, rel: str, to_name: str, project_id: int, who: str = "creator") -> None:
+def add_relation(from_name: str, rel: str, to_name: str, project_id: int,
+                 who: str = "creator", source: str = "authored", protect: bool = False) -> None:
     """양방향 주입(역관계 포함)은 entity.set_relation 에 위임 — 단일 경로 유지."""
     from builder.store import entity  # 지연 import: graph↔entity 순환 회피
-    entity.set_relation(from_name, rel, to_name, project_id, who)
+    entity.set_relation(from_name, rel, to_name, project_id, who, source=source, protect=protect)
 
 
 # ── 사건(events) — 작품별 인과 캔버스 백엔드 ──
@@ -82,10 +88,10 @@ def list_events(project_id: int) -> list[dict]:
     """인과 캔버스용 사건 목록(작품 한정). corpus가 아니라 이 작품의 events."""
     with get_conn() as c:
         rows = c.execute(
-            "SELECT id,title,era,sequence,causal_out_json,chars_json FROM events "
+            "SELECT id,title,era,sequence,source,causal_out_json,chars_json FROM events "
             "WHERE project_id=? ORDER BY sequence,id", (project_id,)).fetchall()
     return [{"id": r["id"], "title": r["title"] or "", "era": r["era"] or "",
-             "sequence": r["sequence"] or 0,
+             "sequence": r["sequence"] or 0, "source": r["source"] or "fan",
              "causal_out": json.loads(r["causal_out_json"] or "[]"),
              "characters": json.loads(r["chars_json"] or "[]")} for r in rows]
 
@@ -102,8 +108,11 @@ def events_by_id(project_id: int) -> dict[str, dict]:
     return out
 
 
-def upsert_event(ev: dict, project_id: int, who: str = "creator") -> str:
-    """사건 등록/보강(작품 한정). id = '{project_id}:evt:{slug}'."""
+def upsert_event(ev: dict, project_id: int, who: str = "creator", protect: bool = False) -> str:
+    """사건 등록/보강(작품 한정). id = '{project_id}:evt:{slug}'.
+
+    protect=True면 이미 확정(status='confirmed')된 사건은 덮어쓰지 않는다(정사 보호).
+    """
     title = (ev.get("title") or ev.get("name") or "").strip()
     if not title:
         raise ValueError("event title required")
@@ -111,8 +120,10 @@ def upsert_event(ev: dict, project_id: int, who: str = "creator") -> str:
     chars = ev.get("characters") or ev.get("chars") or []
     cout = ev.get("causal_out") or []
     with get_conn() as c:
-        row = c.execute("SELECT id FROM events WHERE id=? OR (project_id=? AND title=?)",
+        row = c.execute("SELECT id,status FROM events WHERE id=? OR (project_id=? AND title=?)",
                         (eid, project_id, title)).fetchone()
+        if row and protect and row["status"] == "confirmed":
+            return row["id"]
         if row:
             c.execute("""UPDATE events SET title=?,era=?,what=?,sequence=?,causal_out_json=?,chars_json=?,
                          source=?,status=?,updated_at=?,updated_by=?,version=version+1 WHERE id=?""",

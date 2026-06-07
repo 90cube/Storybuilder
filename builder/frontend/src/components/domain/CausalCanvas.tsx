@@ -9,7 +9,7 @@ import type { Character } from "./CharacterCard";
 import s from "./domain.module.css";
 
 export type CanvasEvent = {
-  id: string; title: string; era: string; anchor?: boolean;
+  id: string; title: string; era: string; anchor?: boolean; draft?: boolean;
   col?: number; row?: number; // 지정 시 인과 focus 레이아웃(좌=선행/중=초점/우=후행)
 };
 export type CanvasEdge = { from: string; to: string };
@@ -33,7 +33,7 @@ function Inner({ events, edges, onDropCharacter, onNodeClick, hint }: Props) {
     position: e.col != null
       ? { x: e.col * 250, y: (e.row ?? 0) * 120 }
       : { x: i * 210, y: (i % 2) * 90 },
-    data: { title: e.title, era: e.era, anchor: e.anchor },
+    data: { title: e.title, era: e.era, anchor: e.anchor, draft: e.draft },
   })), [events]);
   const rfEdges = useMemo<Edge[]>(() => edges.map((ed) => ({
     id: `${ed.from}-${ed.to}`, source: ed.from, target: ed.to, animated: true,

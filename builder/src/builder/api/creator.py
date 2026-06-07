@@ -78,6 +78,12 @@ class LaneCharIn(BaseModel):
     motive: str = ""
 
 
+class StageIn(BaseModel):
+    events: list[dict] = []
+    entities: list[dict] = []
+    relations: list[dict] = []
+
+
 class LaneGenIn(BaseModel):
     project_id: int
     before_id: str
@@ -334,6 +340,16 @@ def analyze(chapter_id: int, mode: str = "raw"):
         raise HTTPException(500, f"{type(e).__name__}: {e}")
     return {"events": d.get("events", []), "entities": d.get("entities", []),
             "relations": d.get("relations", [])}
+
+
+@router.post("/analyze/{chapter_id}/commit")
+def analyze_commit(chapter_id: int, body: StageIn):
+    """분석 결과를 작품 인과 그래프에 'draft_auto' 임시 티어로 추가(정사 보호, FSM 미관여)."""
+    pid = repo.project_of(chapter_id)
+    if pid is None:
+        raise HTTPException(404, "chapter not found")
+    return canon.stage_draft(
+        {"events": body.events, "entities": body.entities, "relations": body.relations}, pid)
 
 
 @router.get("/graph/entities")

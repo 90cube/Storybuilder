@@ -111,21 +111,29 @@ def _pair_id(a: str, b: str) -> str:
     return f"p_{lo}_{hi}"
 
 
-def set_relation(from_name: str, rel: str, to_name: str, project_id: int, who: str = "creator") -> None:
-    """정방향 + (등록된) 역방향을 같은 pair_id 로 주입(작품 한정). 제자→스승 처럼."""
+def set_relation(from_name: str, rel: str, to_name: str, project_id: int, who: str = "creator",
+                 source: str = "authored", protect: bool = False) -> None:
+    """정방향 + (등록된) 역방향을 같은 pair_id 로 주입(작품 한정). 제자→스승 처럼.
+
+    protect=True면 기존 관계가 정사(source in canon/authored)면 덮어쓰지 않는다.
+    """
     a, b = _eid(project_id, from_name), _eid(project_id, to_name)
     pid = _pair_id(a, b)
     inv = loader.inverse_of(rel)
     with get_conn() as c:
+        if protect:
+            ex = c.execute("SELECT source FROM relations WHERE id=?", (f"{a}-{rel}-{b}",)).fetchone()
+            if ex and ex["source"] in ("canon", "authored"):
+                return
         c.execute("""INSERT OR REPLACE INTO relations(id,project_id,from_id,rel,to_id,pair_id,source,updated_at,updated_by)
                      VALUES(?,?,?,?,?,?,?,?,?)""",
-                  (f"{a}-{rel}-{b}", project_id, a, rel, b, pid, "authored", _now(), who))
+                  (f"{a}-{rel}-{b}", project_id, a, rel, b, pid, source, _now(), who))
         if inv:
             c.execute("""INSERT OR REPLACE INTO relations(id,project_id,from_id,rel,to_id,pair_id,source,updated_at,updated_by)
                          VALUES(?,?,?,?,?,?,?,?,?)""",
-                      (f"{b}-{inv}-{a}", project_id, b, inv, a, pid, "authored", _now(), who))
+                      (f"{b}-{inv}-{a}", project_id, b, inv, a, pid, source, _now(), who))
         _log(c, project_id, who, "create", "relation", f"{a}-{rel}-{b}", None,
-             {"from": a, "rel": rel, "to": b, "inverse": inv})
+             {"from": a, "rel": rel, "to": b, "inverse": inv, "source": source})
 
 
 def list_relations(eid: str) -> list[dict]:

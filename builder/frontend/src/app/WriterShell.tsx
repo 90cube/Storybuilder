@@ -33,6 +33,7 @@ export function WriterShell() {
   const [canon, setCanon] = useState<{ entities: CanonItem[]; relations: CanonItem[]; events: CanonItem[] } | null>(null);
   const [dbEnts, setDbEnts] = useState<GraphEntity[]>([]);
   const [analysis, setAnalysis] = useState<{ events: CanonItem[]; entities: CanonItem[]; relations: CanonItem[] } | null>(null);
+  const [stagedNote, setStagedNote] = useState("");
   const [autoAnalyze, setAutoAnalyze] = useState(false);
   const [centerMode, setCenterMode] = useState<CenterMode>("write");
   const [currentProj, setCurrentProj] = useState<number | null>(null);
@@ -166,10 +167,20 @@ export function WriterShell() {
   const analyzeNow = useCallback(async () => {
     if (cid == null) return;
     setBusy("analyze");
-    try { await doSave(); setAnalysis(await api.analyze(cid)); }
+    try { await doSave(); setAnalysis(await api.analyze(cid)); setStagedNote(""); }
     catch { /* 이전 결과 유지 */ }
     finally { setBusy(""); }
   }, [cid, doSave, api.analyze]);
+  const onStage = useCallback(async () => {
+    if (cid == null || !analysis) return;
+    setBusy("stage");
+    try {
+      const r = await api.stageToCausal(cid, analysis);
+      setStagedNote(`인과 추가됨 — 사건 ${r.events} · 노드 ${r.entities} · 엣지 ${r.relations}`);
+      refreshDb();
+    } catch (e) { alert("인과 추가 실패: " + (e as Error).message); }
+    finally { setBusy(""); }
+  }, [cid, analysis, api.stageToCausal, refreshDb]);
   useEffect(() => {
     if (cid == null || !autoAnalyze) return;
     window.clearTimeout(aTimer.current);
@@ -358,10 +369,13 @@ export function WriterShell() {
         <div className={w.analysisHead}>
           <span>초안 분석 — 노드·엣지·사건</span>
           {analysis && <span className={w.aCount}>사건 {analysis.events.length} · 노드 {analysis.entities.length} · 엣지 {analysis.relations.length}</span>}
+          {stagedNote && <span className={w.aStaged}>✓ {stagedNote}</span>}
           <span className={w.aTools}>
             <span className={w.muted}>자동</span><Toggle on={autoAnalyze} onChange={setAutoAnalyze} />
             <Button disabled={busy === "analyze"} onClick={analyzeNow}>
               {busy === "analyze" ? <><Spinner /> 분석…</> : "분석"}</Button>
+            <Button variant="primary" disabled={!analysis || busy === "stage"} onClick={onStage}>
+              {busy === "stage" ? <><Spinner /> 추가…</> : "인과로 추가"}</Button>
           </span>
         </div>
         {analysis ? (

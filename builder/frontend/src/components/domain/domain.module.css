@@ -49,6 +49,9 @@
 .evEra { font: 500 var(--fs-xs)/1 var(--font-mono); color: var(--text-mut); margin-bottom: 3px; }
 .evTitle { font-family: var(--font-display); font-weight: 600; font-size: var(--fs-sm); color: var(--text); }
 .evAnchor { border-color: var(--ember); box-shadow: var(--shadow-glow); }
+/* draft_auto(임시) 사건 — 점선·흐림으로 정사와 시각 분리 */
+.evDraft { border-style: dashed; border-color: var(--arcane, #6c7a96); opacity: .6; background: transparent; }
+.evDraft .evTitle { color: var(--text-dim); }
 .evGap { width: 150px; padding: 10px; border-radius: var(--r-md); border: 1px dashed var(--ember); background: var(--ember-glow);
   color: var(--ember-bright); font: 500 var(--fs-xs)/1.4 var(--font-mono); text-align: center; }
 

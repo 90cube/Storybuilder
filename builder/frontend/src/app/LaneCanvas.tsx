@@ -33,12 +33,13 @@ export function LaneCanvas({ projectId, chapterId }: { api?: Api; projectId: num
   const after = succs[0]?.id ?? null;
 
   const COLS = 6;
+  const isDraft = (e: EventDto) => e.source === "draft_auto";
   const canvasEvents: CanvasEvent[] = overview
-    ? events.map((e, i) => ({ id: e.id, title: e.title, era: e.era, col: i % COLS, row: Math.floor(i / COLS), anchor: e.id === focusedId }))
+    ? events.map((e, i) => ({ id: e.id, title: e.title, era: e.era, col: i % COLS, row: Math.floor(i / COLS), anchor: e.id === focusedId, draft: isDraft(e) }))
     : focused ? [
-        ...preds.map((e, i) => ({ id: e.id, title: e.title, era: e.era, col: 0, row: i })),
-        { id: focused.id, title: focused.title, era: focused.era, col: 1, row: 0, anchor: true },
-        ...succs.map((e, i) => ({ id: e.id, title: e.title, era: e.era, col: 2, row: i, anchor: e.id === after })),
+        ...preds.map((e, i) => ({ id: e.id, title: e.title, era: e.era, col: 0, row: i, draft: isDraft(e) })),
+        { id: focused.id, title: focused.title, era: focused.era, col: 1, row: 0, anchor: true, draft: isDraft(focused) },
+        ...succs.map((e, i) => ({ id: e.id, title: e.title, era: e.era, col: 2, row: i, anchor: e.id === after, draft: isDraft(e) })),
       ] : [];
   const edges: CanvasEdge[] = overview
     ? events.flatMap((e) => e.causal_out.filter((t) => byId.has(t)).map((t) => ({ from: e.id, to: t })))
