@@ -6,6 +6,7 @@ import { CHAPTER_AUTOSAVE_MS, DRAFT_TARGET_CHARS, ANALYZE_DEBOUNCE_MS } from "..
 import { stateIdx, canAdvance, reached } from "../lib/pipeline";
 import { EntityEditor } from "./EntityEditor";
 import { LaneCanvas } from "./LaneCanvas";
+import { PartialEditBar } from "./PartialEditBar";
 import { RowMenu } from "./RowMenu";
 import w from "./writer.module.css";
 
@@ -34,6 +35,7 @@ export function WriterShell() {
   const [dbEnts, setDbEnts] = useState<GraphEntity[]>([]);
   const [analysis, setAnalysis] = useState<{ events: CanonItem[]; entities: CanonItem[]; relations: CanonItem[] } | null>(null);
   const [stagedNote, setStagedNote] = useState("");
+  const [sel, setSel] = useState<{ start: number; end: number; text: string } | null>(null);
   const [autoAnalyze, setAutoAnalyze] = useState(false);
   const [centerMode, setCenterMode] = useState<CenterMode>("write");
   const [currentProj, setCurrentProj] = useState<number | null>(null);
@@ -154,6 +156,26 @@ export function WriterShell() {
     catch (e) { setSaved("저장 실패: " + (e as Error).message); }
   }, [cid, api.saveText]);
   const onText = (v: string) => { setText(v); textRef.current = v; setSaved("수정됨 · 대기"); };
+  const onSelectText = (e: { currentTarget: HTMLTextAreaElement }) => {
+    const t = e.currentTarget;
+    if (t.selectionEnd > t.selectionStart) setSel({ start: t.selectionStart, end: t.selectionEnd, text: t.value.slice(t.selectionStart, t.selectionEnd) });
+    else setSel(null);
+  };
+  const replaceSelection = (s: string) => {
+    if (!sel) return;
+    const nv = text.slice(0, sel.start) + s + text.slice(sel.end);
+    setText(nv); textRef.current = nv; setSel(null); doSave();
+  };
+  const insertAfterSelection = (s: string) => {
+    if (!sel) return;
+    const nv = text.slice(0, sel.end) + "\n" + s + text.slice(sel.end);
+    setText(nv); textRef.current = nv; setSel(null); doSave();
+  };
+  const onConfirmDraft = async () => {
+    if (!active) return;
+    try { await api.advance(active.chapter.id, "POLISH"); setActive({ ...active, state: "POLISH" }); }
+    catch (e) { alert("초안 확정 실패: " + (e as Error).message); }
+  };
 
   // 무동작 N초 후 자동저장 (블러/생성전 즉시저장과 병행)
   useEffect(() => {
@@ -226,13 +248,6 @@ export function WriterShell() {
     setActive((a) => a && { ...a, state: "DB_SYNC" });
     refreshDb();
   };
-  const onPartialPolish = async () => {
-    if (!active || busy) return;
-    setBusy("pp");
-    try { await doSave(); const r = await api.ppPolish(active.chapter.id); setResult({ kind: "final", text: r.text }); setActive({ ...active, state: r.state }); }
-    catch (e) { alert("다듬기 실패: " + (e as Error).message); }
-    finally { setBusy(""); }
-  };
   const onCanonDiff = async () => {
     if (!active || busy) return;
     setBusy("canon");
@@ -250,21 +265,30 @@ export function WriterShell() {
 
   // 현재 화 상태 기반 버튼 활성/강조 (실제 작업과 연동). active=강조(이미 그 단계 도달).
   const cur = active?.state ?? "";
-  const genActions = [
-    { mode: "draft", label: "초안 재생성", enabled: !!active && !!text && stateIdx(cur) < stateIdx("EXPAND"), active: false },
-    { mode: "polish", label: "→ 다듬기", enabled: canAdvance(cur, "POLISH"), active: cur === "POLISH" },
-    { mode: "expand", label: "→ 완성본", enabled: canAdvance(cur, "EXPAND"), active: cur === "EXPAND" },
-  ];
-  const genBar = active && centerMode === "write" && !result && !cands && !canon && (
-    <div className={w.genBar}>
-      <span className={w.genLbl}>생성</span>
-      {genActions.map((a) => (
-        <Button key={a.mode} variant={a.active ? "primary" : "default"}
-          disabled={!a.enabled || !!busy} onClick={() => onToggle(a.mode)}>
-          {busy === a.mode ? <><Spinner /> 생성 중…</> : a.label}
-        </Button>
-      ))}
-    </div>
+  const genActions = cur === "DRAFT"
+    ? [{ mode: "draft", label: "초안 재생성", enabled: !!active && !!text, active: false }]
+    : [
+        { mode: "polish", label: "→ 다듬기", enabled: canAdvance(cur, "POLISH"), active: cur === "POLISH" },
+        { mode: "expand", label: "→ 완성본", enabled: canAdvance(cur, "EXPAND"), active: cur === "EXPAND" },
+      ];
+  const bottomBar = active && centerMode === "write" && !result && !cands && !canon && (
+    sel
+      ? <PartialEditBar api={api} chapterId={active.chapter.id} projectId={currentProj} sel={sel}
+          onReplace={replaceSelection} onInsert={insertAfterSelection} onClose={() => setSel(null)} />
+      : (
+        <div className={w.genBar}>
+          <span className={w.genLbl}>생성</span>
+          {genActions.map((a) => (
+            <Button key={a.mode} variant={a.active ? "primary" : "default"}
+              disabled={!a.enabled || !!busy} onClick={() => onToggle(a.mode)}>
+              {busy === a.mode ? <><Spinner /> 생성 중…</> : a.label}
+            </Button>
+          ))}
+          {cur === "DRAFT" && (
+            <Button variant="primary" disabled={!active || !text || !!busy} onClick={onConfirmDraft}>초안 확정 →</Button>
+          )}
+        </div>
+      )
   );
 
   const left = (
@@ -354,9 +378,10 @@ export function WriterShell() {
     <div className={w.editorWrap}>
       <input className={w.titleInput} value={active.chapter.title} onBlur={saveTitle}
         onChange={(e) => setActive({ ...active, chapter: { ...active.chapter, title: e.target.value } })} />
-      <textarea className={w.editor} value={text} onBlur={doSave}
+      <textarea className={w.editor} value={text} onBlur={doSave} readOnly={!!sel}
+        onSelect={onSelectText}
         onChange={(e) => onText(e.target.value)}
-        placeholder="여기에 ~2000자 초안을 씁니다. 멈추거나(10초) 칸을 벗어나면 자동 저장돼요." />
+        placeholder="여기에 ~2000자 초안을 씁니다. 드래그하면 아래에서 AI 부분수정. 멈추거나(10초) 칸을 벗어나면 자동 저장돼요." />
       <div className={w.editBar}>
         <span className={w.count} data-over={over}>{text.length} / {DRAFT_TARGET_CHARS}자{over ? " — 청킹 권고" : ""}</span>
         {dbEnts.filter((e) => e.name && text.includes(e.name)).slice(0, 8).map((e) => (
@@ -364,7 +389,7 @@ export function WriterShell() {
         ))}
         <span className={w.savedBadge}><Badge tone="jade">저장: {saved || "—"}</Badge></span>
       </div>
-      {genBar}
+      {bottomBar}
       <div className={w.analysisPanel}>
         <div className={w.analysisHead}>
           <span>초안 분석 — 노드·엣지·사건</span>
@@ -498,11 +523,6 @@ export function WriterShell() {
         <Button variant={cur === "CHAR_DETECT" ? "primary" : "default"}
           disabled={!canAdvance(cur, "CHAR_DETECT") || !!busy} onClick={onDetect}>
           {busy === "detect" ? <><Spinner /> 감지 중…</> : "캐릭터 감지"}
-        </Button>
-        <span className={w.lbl} style={{ marginTop: 6 }}>후공정 (강제 초기화)</span>
-        <Button variant={cur === "PARTIAL_POLISH" || cur === "CTX_RESET_B" ? "primary" : "default"}
-          disabled={!active || !reached(cur, "EXPAND") || reached(cur, "EXTRACT") || !!busy} onClick={onPartialPolish}>
-          {busy === "pp" ? <><Spinner /> 다듬는 중…</> : "부분 다듬기"}
         </Button>
         <Button variant={cur === "EXTRACT" ? "primary" : "default"}
           disabled={!active || !reached(cur, "CTX_RESET_B") || !!busy} onClick={onCanonDiff}>
