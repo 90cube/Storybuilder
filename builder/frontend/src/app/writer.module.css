@@ -45,6 +45,9 @@
   color: var(--text); font: 400 16px/1.9 var(--font-body); padding: 18px 20px; }
 .editor::placeholder { color: var(--text-mut); }
 .editBar { display: flex; align-items: center; gap: var(--sp-3); padding: 6px 20px; border-top: 1px solid var(--line); font: 500 var(--fs-xs)/1 var(--font-mono); color: var(--text-mut); }
+/* 초안 하단 생성 바 (오른쪽 레일에서 이동) */
+.genBar { display: flex; align-items: center; gap: 8px; padding: 8px 20px; border-top: 1px solid var(--line); background: var(--ink-850); flex: none; }
+.genLbl { font: 600 var(--fs-xs)/1 var(--font-mono); color: var(--text-mut); text-transform: uppercase; letter-spacing: .1em; margin-right: 4px; }
 .count[data-over="true"] { color: var(--ember-b); }
 .inlineTag { font: 600 10px/1 var(--font-mono); padding: 3px 7px; border-radius: 999px; background: var(--ember-glow); color: var(--ember-b); border: 1px solid var(--ember-d); }
 .savedBadge { margin-left: auto; }
@@ -90,12 +93,16 @@
 /* 우: 파이프라인 레일 */
 .rail { display: flex; flex-direction: column; height: 100%; min-height: 0; padding: var(--sp-3); gap: var(--sp-3); }
 .railTitle { font: 600 var(--fs-xs)/1 var(--font-mono); color: var(--text-mut); text-transform: uppercase; letter-spacing: .1em; }
+.railCur { color: var(--ember-b); }
 .stepper { display: flex; flex-direction: column; gap: 1px; overflow: auto; }
 .step { display: flex; align-items: center; gap: 8px; padding: 4px 8px; border-radius: 4px; font: 500 var(--fs-xs)/1.3 var(--font-mono); color: var(--text-mut); }
 .step .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ink-650); flex: none; }
-.step[data-on="true"] { background: var(--ember-glow); color: var(--ember-b); }
-.step[data-on="true"] .dot { background: var(--ember); }
-.step[data-toggle="true"] .dot { box-shadow: 0 0 0 2px var(--ember-d); }
+/* off=화 없음(전부 흐림) · done=지난 단계(청록 체크) · cur=현재(호박빛 강조) · future=앞으로(흐림) */
+.step[data-status="off"], .step[data-status="future"] { color: var(--text-mut); opacity: .55; }
+.step[data-status="done"] { color: var(--text-dim); }
+.step[data-status="done"] .dot { background: var(--jade); }
+.step[data-status="cur"] { background: var(--ember-glow); color: var(--ember-b); }
+.step[data-status="cur"] .dot { background: var(--ember); box-shadow: 0 0 0 2px var(--ember-d); }
 .toggles { display: flex; flex-direction: column; gap: 6px; }
 .toggles .lbl { font: 600 var(--fs-xs)/1 var(--font-mono); color: var(--text-mut); text-transform: uppercase; letter-spacing: .1em; }
 

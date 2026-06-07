@@ -3,6 +3,7 @@ import { Badge, Button, Input, Panel, Spinner, Toggle } from "../components/prim
 import { AspectLayout, ResizableSplit, StatusBar, Titlebar } from "../components/shell";
 import { useCreator, type Season, type Chapter, type ChapterDetail, type CanonItem, type GraphEntity } from "../lib/useCreator";
 import { CHAPTER_AUTOSAVE_MS, DRAFT_TARGET_CHARS, ANALYZE_DEBOUNCE_MS } from "../lib/const";
+import { stateIdx, canAdvance, reached } from "../lib/pipeline";
 import { EntityEditor } from "./EntityEditor";
 import { LaneCanvas } from "./LaneCanvas";
 import w from "./writer.module.css";
@@ -12,12 +13,6 @@ const CENTER_TABS: { mode: CenterMode; label: string }[] = [
   { mode: "write", label: "✍ 집필" },
   { mode: "entities", label: "◆ 엔티티" },
   { mode: "canvas", label: "⌥ 인과 캔버스" },
-];
-
-const TOGGLES: { mode: string; label: string }[] = [
-  { mode: "draft", label: "초안→초안" },
-  { mode: "polish", label: "→ 다듬기" },
-  { mode: "expand", label: "→ 완성본" },
 ];
 
 export function WriterShell() {
@@ -224,6 +219,25 @@ export function WriterShell() {
 
   const over = text.length > DRAFT_TARGET_CHARS;
 
+  // 현재 화 상태 기반 버튼 활성/강조 (실제 작업과 연동). active=강조(이미 그 단계 도달).
+  const cur = active?.state ?? "";
+  const genActions = [
+    { mode: "draft", label: "초안 재생성", enabled: !!active && !!text && stateIdx(cur) < stateIdx("EXPAND"), active: false },
+    { mode: "polish", label: "→ 다듬기", enabled: canAdvance(cur, "POLISH"), active: cur === "POLISH" },
+    { mode: "expand", label: "→ 완성본", enabled: canAdvance(cur, "EXPAND"), active: cur === "EXPAND" },
+  ];
+  const genBar = active && centerMode === "write" && !result && !cands && !canon && (
+    <div className={w.genBar}>
+      <span className={w.genLbl}>생성</span>
+      {genActions.map((a) => (
+        <Button key={a.mode} variant={a.active ? "primary" : "default"}
+          disabled={!a.enabled || !!busy} onClick={() => onToggle(a.mode)}>
+          {busy === a.mode ? <><Spinner /> 생성 중…</> : a.label}
+        </Button>
+      ))}
+    </div>
+  );
+
   const left = (
     <Panel title="탐색기" className={w.fill}>
       <div className={w.newRow}>
@@ -308,6 +322,7 @@ export function WriterShell() {
         ))}
         <span className={w.savedBadge}><Badge tone="jade">저장: {saved || "—"}</Badge></span>
       </div>
+      {genBar}
       <div className={w.analysisPanel}>
         <div className={w.analysisHead}>
           <span>초안 분석 — 노드·엣지·사건</span>
@@ -417,34 +432,35 @@ export function WriterShell() {
     </div>
   );
 
+  // 스테퍼: 지난 단계=done, 현재=cur, 이후=future (실제 상태 반영, 가짜 불 제거)
+  const ci = stateIdx(cur);
   const right = (
     <div className={w.rail}>
-      <div className={w.railTitle}>파이프라인</div>
+      <div className={w.railTitle}>파이프라인 {active && <span className={w.railCur}>· {cur}</span>}</div>
       <div className={w.stepper}>
-        {api.states.map((s) => (
-          <div key={s} className={w.step} data-on={active?.state === s}
-            data-toggle={s === "POLISH" || s === "EXPAND"}>
-            <span className={w.dot} />{s}
-          </div>
-        ))}
+        {api.states.map((s) => {
+          const si = stateIdx(s);
+          const status = !active ? "off" : si < ci ? "done" : si === ci ? "cur" : "future";
+          return (
+            <div key={s} className={w.step} data-status={status}>
+              <span className={w.dot} />{s}
+            </div>
+          );
+        })}
       </div>
       <div className={w.toggles}>
-        <span className={w.lbl}>생성</span>
-        {TOGGLES.map((t) => (
-          <Button key={t.mode} variant={t.mode === "polish" ? "primary" : "default"}
-            disabled={!active || !!busy} onClick={() => onToggle(t.mode)}>
-            {busy === t.mode ? <><Spinner /> 생성 중…</> : t.label}
-          </Button>
-        ))}
-        <span className={w.lbl} style={{ marginTop: 6 }}>구조화</span>
-        <Button disabled={!active || !!busy} onClick={onDetect}>
+        <span className={w.lbl}>구조화</span>
+        <Button variant={cur === "CHAR_DETECT" ? "primary" : "default"}
+          disabled={!canAdvance(cur, "CHAR_DETECT") || !!busy} onClick={onDetect}>
           {busy === "detect" ? <><Spinner /> 감지 중…</> : "캐릭터 감지"}
         </Button>
         <span className={w.lbl} style={{ marginTop: 6 }}>후공정 (강제 초기화)</span>
-        <Button disabled={!active || !!busy} onClick={onPartialPolish}>
+        <Button variant={cur === "PARTIAL_POLISH" || cur === "CTX_RESET_B" ? "primary" : "default"}
+          disabled={!active || !reached(cur, "EXPAND") || reached(cur, "EXTRACT") || !!busy} onClick={onPartialPolish}>
           {busy === "pp" ? <><Spinner /> 다듬는 중…</> : "부분 다듬기"}
         </Button>
-        <Button disabled={!active || !!busy} onClick={onCanonDiff}>
+        <Button variant={cur === "EXTRACT" ? "primary" : "default"}
+          disabled={!active || !reached(cur, "CTX_RESET_B") || !!busy} onClick={onCanonDiff}>
           {busy === "canon" ? <><Spinner /> 추출 중…</> : "정사 추출·diff"}
         </Button>
       </div>
