@@ -44,7 +44,7 @@ def edit(selected: str, before: str = "", after: str = "", world: str = "", styl
         + _char_block(cards)
         + f"[앞 문맥]\n{before[-600:]}\n\n[선택(수정 대상)]\n{selected}\n\n[뒤 문맥]\n{after[:400]}\n\n{instr}"
     )
-    raw = client.chat(sys, user, temperature=0.7 if mode == "enrich" else 0.5, max_tokens=1600)
+    raw = client.chat(sys, user, temperature=0.7 if mode == "enrich" else 0.5, max_tokens=4096)
     d = _parse(raw)
     return {"rewrites": d.get("rewrites", []) or [],
             "continuations": d.get("continuations", []) or [],
@@ -54,4 +54,4 @@ def edit(selected: str, before: str = "", after: str = "", world: str = "", styl
 def translate(text: str, world: str = "") -> str:
     sys = ("주어진 텍스트의 언어를 감지해 한국어면 영어로, 그 외 언어면 한국어로 자연스럽게 번역하라. "
            "설명 없이 번역문만 출력.")
-    return client.chat(sys, text, temperature=0.2, max_tokens=1200).strip()
+    return client.chat(sys, text, temperature=0.2, max_tokens=4096).strip()
