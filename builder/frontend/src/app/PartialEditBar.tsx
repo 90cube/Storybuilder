@@ -16,15 +16,17 @@ const SRC: { v: string; label: string }[] = [
   { v: "field", label: "문체 필드" }, { v: "auto", label: "자동 샘플" }, { v: "base", label: "기본" },
 ];
 
-export function PartialEditBar({ api, chapterId, projectId, sel, onReplace, onInsert, onClose }: {
+export function PartialEditBar({ api, chapterId, projectId, sel, onReplace, onInsert, onClose, onRegistered }: {
   api: Api; chapterId: number; projectId: number | null; sel: Sel;
   onReplace: (s: string) => void; onInsert: (s: string) => void; onClose: () => void;
+  onRegistered?: () => void;
 }) {
   const [src, setSrc] = useState("field");
   const [busy, setBusy] = useState("");
   const [res, setRes] = useState<Result | null>(null);
   const [trans, setTrans] = useState("");
   const [err, setErr] = useState("");
+  const [reg, setReg] = useState<Record<string, "ing" | "done">>({});
 
   const run = async () => {
     setBusy("edit"); setErr(""); setRes(null); setTrans("");
@@ -40,9 +42,16 @@ export function PartialEditBar({ api, chapterId, projectId, sel, onReplace, onIn
     finally { setBusy(""); }
   };
   const register = async (e: CanonItem) => {
-    if (projectId == null) return;
-    try { await api.stageToCausal(chapterId, { events: [], entities: [e], relations: [] }); }
-    catch { /* */ }
+    const nm = e.name || "";
+    if (projectId == null || !nm || reg[nm]) return;  // 중복 클릭 방지
+    setReg((r) => ({ ...r, [nm]: "ing" }));
+    try {
+      await api.stageToCausal(chapterId, { events: [], entities: [e], relations: [] });
+      setReg((r) => ({ ...r, [nm]: "done" }));
+      onRegistered?.();  // 좌측 DB·엔티티 목록 새로고침
+    } catch {
+      setReg((r) => { const n = { ...r }; delete n[nm]; return n; });
+    }
   };
 
   return (
@@ -89,9 +98,15 @@ export function PartialEditBar({ api, chapterId, projectId, sel, onReplace, onIn
           {!!res.entities.added.length && (
             <div className={w.peEnts}>
               <span className={w.peKind}>새 엔티티</span>
-              {res.entities.added.map((e, i) => (
-                <span key={i} className={w.peEnt}>{e.name}<button className={w.peReg} onClick={() => register(e)}>＋등록</button></span>
-              ))}
+              {res.entities.added.map((e, i) => {
+                const st = reg[e.name || ""];
+                return (
+                  <span key={i} className={w.peEnt}>{e.name}
+                    <button className={w.peReg} disabled={!!st} onClick={() => register(e)}>
+                      {st === "done" ? "✓ 등록됨" : st === "ing" ? "등록 중…" : "＋등록"}</button>
+                  </span>
+                );
+              })}
             </div>
           )}
         </div>

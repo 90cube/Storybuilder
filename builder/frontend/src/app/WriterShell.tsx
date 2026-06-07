@@ -274,7 +274,8 @@ export function WriterShell() {
   const bottomBar = active && centerMode === "write" && !result && !cands && !canon && (
     sel
       ? <PartialEditBar api={api} chapterId={active.chapter.id} projectId={currentProj} sel={sel}
-          onReplace={replaceSelection} onInsert={insertAfterSelection} onClose={() => setSel(null)} />
+          onReplace={replaceSelection} onInsert={insertAfterSelection} onClose={() => setSel(null)}
+          onRegistered={refreshDb} />
       : (
         <div className={w.genBar}>
           <span className={w.genLbl}>생성</span>
