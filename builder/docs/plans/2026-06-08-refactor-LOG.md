@@ -42,7 +42,20 @@
 
 ### 프런트 분해 결과: WriterShell 555→133, useCreator 123→28, app/{explorer,editor,pipeline}/ 분리, lib/api.ts 순수. 전 파일 ≤200 (예외: AppShell 207=기존·범위외).
 
+## B2 ✅ /run 가용액션 엔드포인트
+빌더 에이전트(TDD). `structure_routes.py`에 `GET /api/run/{id}` → {state, states, canAdvanceTo, tools}. test_run_actions.py. 커밋 `590f805`.
+
+## B3 ✅ autosave 보존정책
+빌더 에이전트(TDD). `const.AUTOSAVE_KEEP=20` + save_draft_text 정리쿼리. test_autosave_retention.py. pytest 13 passed. 커밋 `b01de29`.
+- 메모: B1 미수행이라 repo.py 단일파일에 적용(분리 시 manuscript.py로 이동 예정).
+
+## F1 ✅ genActions 순수함수 — F6에서 흡수
+`lib/genActions.ts`(F6 시 추출). 단위테스트는 F0(vitest) 보류와 함께 보류.
+
+## F7 ✅ FSM 순서 서버 단일출처화 + 죽은코드 제거 (인라인)
+PipelineRail 스테퍼 순서를 서버 `api.states` 인덱스로. 미사용 TRANSITIONS/canAdvance/reached + STATE_ORDER 미러 삭제 → `lib/pipeline.ts` 제거. 빌드 그린. 커밋(2 files, -33). tools 페치(#3)는 trivial 규칙이라 미적용(B2 엔드포인트는 테스트 완료·미래용 보존).
+
 ---
 
-## 진행 예정
-B2(/run FSM) → B3(autosave) → F7(서버 FSM 소비) → QA(품질검증) → finish.
+## QA (품질검증) — 진행 중
+자동 게이트(pytest·build·lint·줄수) + 코드리뷰(레이어·CANNOT·행동위험) + 브라우저 스모크.
