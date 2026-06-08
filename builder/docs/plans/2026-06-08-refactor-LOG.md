@@ -35,7 +35,14 @@
 - useChapterDraft에 `setText` 추가(F6 accept용). analysis는 busy 문자열 공유 때문에 WriterShellInner 유지(분리 시 행동 변함) — AnalysisPanel은 순수 표시만.
 - **본문모델 변경(#6) 보류**: openChapter가 draft 대신 최신 원고 표시하면 "최신본 편집→draft 저장" 불일치 → 별도 UX 결정사안. 리팩토링은 행동 불변 유지.
 
+## F6 ✅ Pipeline+패널+레일 분리 — WriterShell 셸화
+빌더 에이전트. `lib/genActions.ts`(15) + `pipeline/usePipeline.ts`(142)·`ResultDiff`·`CharPanel`·`CanonPanel`·`PipelineRail`·`BottomBar`. **WriterShell 325→133줄** (원래 555 대비 -76%). 빌드 그린(독립검증 ✓). 커밋 `762658`.
+- 의도된 미세변화 1: openChapter가 화 전환 시 analysis도 초기화(resetForChapter) — 이전엔 미초기화. 더 정합적(이전 화 분석 잔존 방지).
+- usePipeline opts: currentProj 제외(refreshDb가 캡슐화), applyText·autoAnalyze 추가.
+
+### 프런트 분해 결과: WriterShell 555→133, useCreator 123→28, app/{explorer,editor,pipeline}/ 분리, lib/api.ts 순수. 전 파일 ≤200 (예외: AppShell 207=기존·범위외).
+
 ---
 
-## 진행 예정 (에이전트 순차)
-F6(Pipeline+패널+레일, WriterShell≤200) → B2(/run FSM) → F7(서버 FSM 소비) → QA(품질검증) → finish.
+## 진행 예정
+B2(/run FSM) → B3(autosave) → F7(서버 FSM 소비) → QA(품질검증) → finish.
