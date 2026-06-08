@@ -26,7 +26,11 @@
 빌더 에이전트. `CreatorProvider`+`useCreatorCtx`, WriterShell→`<CreatorProvider><WriterShellInner/>`. EntityEditor·LaneCanvas·PartialEditBar가 api/projectId를 ctx에서 취득. 빌드 그린(독립 검증 ✓). 커밋 `27d85ca`.
 - 계약 준수 메모: `setCurrentProj` 시그니처가 비-함수형이라 자동펼침 effect를 `setCurrentProj(currentProj ?? pid)`로(가드로 1회·null→동일). 행동 불변.
 
+## F4 ✅ Explorer 분리
+빌더 에이전트. `explorer/useProjectTree.ts`(117) + `ExplorerTree.tsx`(107). WriterShell 555→**397줄**. 빌드 그린. 커밋 `142ab44`.
+- 계약 차이(의도): useProjectTree가 `onActiveInvalidated` 대신 `active`+`setActive` 수신 — rename/move는 active 무효화가 아니라 patch라 필요. `loadChapters`도 노출(saveTitle 공유). active 결합 5케이스 원본과 문자단위 동일 보존.
+
 ---
 
 ## 진행 예정 (에이전트 순차)
-F4(Explorer) → F5(Editor+Analysis) → F6(Pipeline+패널+레일, WriterShell≤200) → B2(/run FSM) → F7(서버 FSM 소비) → QA(품질검증) → finish.
+F5(Editor+Analysis+본문모델) → F6(Pipeline+패널+레일, WriterShell≤200) → B2(/run FSM) → F7(서버 FSM 소비) → QA(품질검증) → finish.
