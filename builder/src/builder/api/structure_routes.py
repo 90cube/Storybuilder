@@ -128,6 +128,20 @@ def run_state(chapter_id: int):
     return {"state": repo.get_state(chapter_id), "states": pipeline.STATES}
 
 
+@router.get("/run/{chapter_id}")
+def run_info(chapter_id: int):
+    """FSM 단일 진실원: 현재 상태·전체 순서·가용 전이·구조화 도구 활성을 한 번에 반환."""
+    if not repo.get_chapter(chapter_id):
+        raise HTTPException(404, "chapter not found")
+    state = repo.get_state(chapter_id)
+    return {
+        "state": state,
+        "states": pipeline.STATES,
+        "canAdvanceTo": pipeline.TRANSITIONS.get(state, []),
+        "tools": {"detect": state != "DRAFT", "canon": state != "DRAFT"},
+    }
+
+
 @router.post("/run/{chapter_id}/advance")
 def advance(chapter_id: int, body: AdvanceIn):
     cur = repo.get_state(chapter_id)
