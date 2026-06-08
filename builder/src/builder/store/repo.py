@@ -2,6 +2,7 @@
 
 from datetime import datetime, timezone
 
+from builder.const import AUTOSAVE_KEEP
 from builder.store.db import get_conn
 
 
@@ -156,6 +157,10 @@ def save_draft_text(chapter_id: int, text: str) -> None:
                      WHERE chapter_id=? AND kind='draft'""", (text, chapter_id))
         c.execute("INSERT INTO autosaves(chapter_id,text,state,ts) VALUES(?,?,?,?)",
                   (chapter_id, text, st["state"] if st else "DRAFT", _now()))
+        # 무한누적 방지: 이 화의 오래된 스냅샷은 최근 AUTOSAVE_KEEP개만 남기고 정리(같은 트랜잭션).
+        c.execute("""DELETE FROM autosaves WHERE chapter_id=? AND id NOT IN
+                     (SELECT id FROM autosaves WHERE chapter_id=? ORDER BY id DESC LIMIT ?)""",
+                  (chapter_id, chapter_id, AUTOSAVE_KEEP))
 
 
 def add_manuscript(chapter_id: int, kind: str, text: str) -> int:

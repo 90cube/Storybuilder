@@ -25,6 +25,9 @@ SOURCE_WEIGHTS: dict[str, float] = {
     "namu": 0.5,
 }
 
+# autosave 보존 정책: 화별 최근 N개만 유지(무한누적·D1 과금 방지).
+AUTOSAVE_KEEP = 20
+
 # 로컬 LLM (WSL/Windows llama-server, OpenAI 호환). 서빙 구현에 안 묶이게 URL만 본다.
 LLM_BASE_URL = "http://127.0.0.1:8080"
 MODEL_NAME = "gemma-4-31B-it-Q4_K_M.unsloth.gguf"
