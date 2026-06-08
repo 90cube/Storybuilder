@@ -1,10 +1,10 @@
 /** 선택 시 하단 부분수정 컴포넌트 — 선택 영역을 다듬기(초안)/보강+엔티티(확정 후) 후보로 교체. */
 import { useState } from "react";
 import { Button, Spinner } from "../components/primitives";
-import type { useCreator, CanonItem } from "../lib/useCreator";
+import type { CanonItem } from "../lib/useCreator";
+import { useCreatorCtx } from "./CreatorProvider";
 import w from "./writer.module.css";
 
-type Api = ReturnType<typeof useCreator>;
 type Sel = { start: number; end: number; text: string };
 type Result = {
   rewrites: string[]; continuations: string[];
@@ -16,11 +16,13 @@ const SRC: { v: string; label: string }[] = [
   { v: "field", label: "문체 필드" }, { v: "auto", label: "자동 샘플" }, { v: "base", label: "기본" },
 ];
 
-export function PartialEditBar({ api, chapterId, projectId, sel, onReplace, onInsert, onClose, onRegistered }: {
-  api: Api; chapterId: number; projectId: number | null; sel: Sel;
+export function PartialEditBar({ chapterId, sel, onReplace, onInsert, onClose, onRegistered }: {
+  chapterId: number; sel: Sel;
   onReplace: (s: string) => void; onInsert: (s: string) => void; onClose: () => void;
   onRegistered?: () => void;
 }) {
+  const api = useCreatorCtx();
+  const projectId = api.currentProj;
   const [src, setSrc] = useState("field");
   const [busy, setBusy] = useState("");
   const [res, setRes] = useState<Result | null>(null);

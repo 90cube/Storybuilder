@@ -4,12 +4,11 @@ import { Button, Chip, Select, Spinner } from "../components/primitives";
 import { CausalCanvas, EntityPicker, StoryPane, ValidationBar,
   type CanvasEdge, type CanvasEvent, type Character } from "../components/domain";
 import { useBuilder, type EventDto, type GenResult } from "../lib/useBuilder";
-import type { useCreator } from "../lib/useCreator";
+import { useCreatorCtx } from "./CreatorProvider";
 import w from "./writer.module.css";
 
-type Api = ReturnType<typeof useCreator>;
-
-export function LaneCanvas({ projectId, chapterId }: { api?: Api; projectId: number | null; chapterId: number | null }) {
+export function LaneCanvas({ chapterId }: { chapterId: number | null }) {
+  const { currentProj: projectId } = useCreatorCtx();
   const { events, plots, systemDefault, online, generate } = useBuilder(projectId);
   const [focusedId, setFocusedId] = useState<string | null>(null);
   const [characters, setCharacters] = useState<Character[]>([]);

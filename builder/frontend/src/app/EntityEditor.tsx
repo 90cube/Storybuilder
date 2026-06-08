@@ -1,10 +1,10 @@
 /** 스키마주도 엔티티 편집기 — editor(Go)의 타입 폼·검증·관계·타임라인·비밀을 Creator로 흡수. */
 import { useCallback, useEffect, useMemo, useState, type ChangeEvent } from "react";
 import { Badge, Button, Input } from "../components/primitives";
-import type { useCreator, SchemaInfo, SchemaField, EntityRow, EntityFull } from "../lib/useCreator";
+import type { SchemaInfo, SchemaField, EntityRow, EntityFull } from "../lib/useCreator";
+import { useCreatorCtx } from "./CreatorProvider";
 import w from "./writer.module.css";
 
-type Api = ReturnType<typeof useCreator>;
 type FormVal = Record<string, unknown>;
 
 const asList = (v: unknown): string[] => Array.isArray(v) ? v as string[] : String(v ?? "").split(",").map((s) => s.trim()).filter(Boolean);
@@ -20,7 +20,9 @@ function Field({ f, value, onChange }: { f: SchemaField; value: unknown; onChang
   return <input {...common} />;
 }
 
-export function EntityEditor({ api, projectId, onChanged }: { api: Api; projectId: number | null; onChanged?: () => void }) {
+export function EntityEditor({ onChanged }: { onChanged?: () => void }) {
+  const api = useCreatorCtx();
+  const projectId = api.currentProj;
   const [schema, setSchema] = useState<SchemaInfo | null>(null);
   const [type, setType] = useState("character");
   const [rows, setRows] = useState<EntityRow[]>([]);

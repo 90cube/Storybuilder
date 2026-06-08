@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Badge, Button, Input, Panel, Spinner, Toggle } from "../components/primitives";
 import { AspectLayout, ResizableSplit, StatusBar, Titlebar } from "../components/shell";
-import { useCreator, type Season, type Chapter, type ChapterDetail, type CanonItem, type GraphEntity } from "../lib/useCreator";
+import { type Season, type Chapter, type ChapterDetail, type CanonItem, type GraphEntity } from "../lib/useCreator";
 import { CHAPTER_AUTOSAVE_MS, DRAFT_TARGET_CHARS, ANALYZE_DEBOUNCE_MS } from "../lib/const";
 import { stateIdx } from "../lib/pipeline";
+import { CreatorProvider, useCreatorCtx } from "./CreatorProvider";
 import { EntityEditor } from "./EntityEditor";
 import { LaneCanvas } from "./LaneCanvas";
 import { PartialEditBar } from "./PartialEditBar";
@@ -18,7 +19,16 @@ const CENTER_TABS: { mode: CenterMode; label: string }[] = [
 ];
 
 export function WriterShell() {
-  const api = useCreator();
+  return (
+    <CreatorProvider>
+      <WriterShellInner />
+    </CreatorProvider>
+  );
+}
+
+function WriterShellInner() {
+  const api = useCreatorCtx();
+  const { currentProj, setCurrentProj } = api;
   const [expProj, setExpProj] = useState<Set<number>>(new Set());
   const [expSeason, setExpSeason] = useState<Set<number>>(new Set());
   const [seasonsByProj, setSeasonsByProj] = useState<Record<number, Season[]>>({});
@@ -38,7 +48,6 @@ export function WriterShell() {
   const [sel, setSel] = useState<{ start: number; end: number; text: string } | null>(null);
   const [autoAnalyze, setAutoAnalyze] = useState(false);
   const [centerMode, setCenterMode] = useState<CenterMode>("write");
-  const [currentProj, setCurrentProj] = useState<number | null>(null);
   const timer = useRef<number>(0);
   const aTimer = useRef<number>(0);
   const textRef = useRef<string>("");
@@ -75,7 +84,7 @@ export function WriterShell() {
   useEffect(() => {
     if (api.projects.length && expProj.size === 0) {
       const pid = api.projects[0].id;
-      setExpProj(new Set([pid])); loadSeasons(pid); setCurrentProj((c) => c ?? pid);
+      setExpProj(new Set([pid])); loadSeasons(pid); setCurrentProj(currentProj ?? pid);
     }
   }, [api.projects, expProj.size, loadSeasons]);
 
@@ -274,7 +283,7 @@ export function WriterShell() {
       ];
   const bottomBar = active && centerMode === "write" && !result && !cands && !canon && (
     sel
-      ? <PartialEditBar api={api} chapterId={active.chapter.id} projectId={currentProj} sel={sel}
+      ? <PartialEditBar chapterId={active.chapter.id} sel={sel}
           onReplace={replaceSelection} onInsert={insertAfterSelection} onClose={() => setSel(null)}
           onRegistered={refreshDb} />
       : (
@@ -488,9 +497,9 @@ export function WriterShell() {
     ? <div className={w.placeholder}>좌측에서 화를 열거나 새로 만드세요.</div>
     : (canon ? canonPanel : (cands ? charPanel : (result ? diff : editor)));
   const centerInner = centerMode === "entities"
-    ? <EntityEditor api={api} projectId={currentProj} onChanged={refreshDb} />
+    ? <EntityEditor onChanged={refreshDb} />
     : centerMode === "canvas"
-      ? <LaneCanvas api={api} projectId={currentProj} chapterId={active?.chapter.id ?? null} />
+      ? <LaneCanvas chapterId={active?.chapter.id ?? null} />
       : writeCenter;
   const center = (
     <div className={w.centerWrap}>
