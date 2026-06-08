@@ -7,6 +7,29 @@ import (
 	"os"
 )
 
+// LoadDescriptions는 character_master.json에서 dfu_id -> description 맵을 만든다.
+// 그래프 요약이 없는 코퍼스 전용 엔티티의 요약 보강용.
+func LoadDescriptions(path string) (map[string]string, error) {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	var cm []struct {
+		DfuID       string `json:"dfu_id"`
+		Description string `json:"description"`
+	}
+	if err := json.Unmarshal(raw, &cm); err != nil {
+		return nil, err
+	}
+	out := make(map[string]string, len(cm))
+	for _, c := range cm {
+		if c.Description != "" {
+			out[c.DfuID] = c.Description
+		}
+	}
+	return out, nil
+}
+
 // IDMapEntry는 corpus/id_map.json 한 항목.
 type IDMapEntry struct {
 	CanonicalID string   `json:"canonical_id"`
@@ -26,10 +49,27 @@ type Edge struct {
 	ToID   string `json:"to_id"`
 }
 
-// MergedNode는 graph/nodes_merged.jsonl에서 요약만 뽑는다.
+// MergedNode는 graph/nodes_merged.jsonl 전체 데이터를 담는다.
 type MergedNode struct {
-	ID      string `json:"id"`
-	Summary string `json:"summary"`
+	ID                 string   `json:"id"`
+	Summary            string   `json:"summary"`
+	PersonalityTraits  []string `json:"personality_traits"`
+	SpeechStyle        string   `json:"speech_style"`
+	Tags               []string `json:"tags"`
+	MBTI               string   `json:"mbti"`
+	MergedIDs          []string `json:"merged_ids"`
+	Timeline           []struct {
+		Era      string   `json:"era"`
+		Phase    string   `json:"type"`
+		Summary  string   `json:"summary"`
+		Traits   []string `json:"traits"`
+		EventRefs []string `json:"event_refs"`
+	} `json:"timeline"`
+}
+
+type ImageRecord struct {
+	AtomID   int    `json:"atom_id"`
+	FilePath string `json:"file_path"`
 }
 
 // TimelineFile은 corpus/entity_timeline.json.
@@ -94,14 +134,14 @@ func LoadEdges(path string) ([]Edge, error) {
 	return out, sc.Err()
 }
 
-// LoadMergedSummaries는 nodes_merged.jsonl에서 id→summary 맵을 만든다.
-func LoadMergedSummaries(path string) (map[string]string, error) {
+// LoadMergedSummaries는 nodes_merged.jsonl에서 id→MergedNode 맵을 만든다.
+func LoadMergedSummaries(path string) (map[string]MergedNode, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
 	defer f.Close()
-	out := map[string]string{}
+	out := map[string]MergedNode{}
 	sc := bufio.NewScanner(f)
 	sc.Buffer(make([]byte, 1024*1024), 8*1024*1024)
 	for sc.Scan() {
@@ -113,9 +153,7 @@ func LoadMergedSummaries(path string) (map[string]string, error) {
 		if err := json.Unmarshal(line, &n); err != nil {
 			return nil, err
 		}
-		if n.Summary != "" {
-			out[n.ID] = n.Summary
-		}
+		out[n.ID] = n
 	}
 	return out, sc.Err()
 }
@@ -137,4 +175,25 @@ func LoadSecretsFile(path string) (SecretsFile, error) {
 		return sf, err
 	}
 	return sf, json.Unmarshal(raw, &sf)
+}
+
+func LoadImages(path string) (map[int][]string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	out := map[int][]string{}
+	sc := bufio.NewScanner(f)
+	for sc.Scan() {
+		line := sc.Bytes()
+		if len(line) == 0 {
+			continue
+		}
+		var img ImageRecord
+		if err := json.Unmarshal(line, &img); err == nil {
+			out[img.AtomID] = append(out[img.AtomID], img.FilePath)
+		}
+	}
+	return out, sc.Err()
 }

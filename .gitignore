@@ -6,11 +6,16 @@
 !/.gitignore
 !/README.md
 !/editor/
+!/builder/
 
 # editor 내부 산출물(빌드·로컬 DB)은 제외 — DB 파일은 절대 추적하지 않는다
 editor/build/
 editor/**/*.exe
 editor/**/*.test
+# 컴파일된 리눅스 바이너리(확장자 없음) + 스크래치 디버그 파일
+editor/storybuilder-linux
+editor/migrate-linux
+editor/test_query.go
 # 모든 DB 파일 (어느 위치든)
 *.db
 *.sqlite
@@ -18,6 +23,18 @@ editor/**/*.test
 *.db-journal
 *.db-wal
 *.db-shm
+
+# builder 내부 산출물 — 가상환경·생성 드래프트·의존성·빌드물은 추적하지 않는다
+builder/.venv/
+builder/drafts/
+builder/.run/
+builder/creator.db
+builder/**/*.parquet
+builder/**/__pycache__/
+builder/**/*.pyc
+builder/**/*.egg-info/
+builder/frontend/node_modules/
+builder/frontend/dist/
 
 # 도구·OS·IDE 부산물 (프로젝트와 직접 무관)
 .claude/

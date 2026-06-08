@@ -1,0 +1,37 @@
+/* VS Code풍 셸 크롬. */
+
+.titlebar {
+  display: flex; align-items: center; gap: var(--sp-3); height: 38px; flex: none;
+  padding: 0 var(--sp-3); background: var(--ink-850); border-bottom: 1px solid var(--line);
+}
+.brand { font: 600 var(--fs-sm)/1 var(--font-display); color: var(--text); letter-spacing: .02em; }
+.brand b { color: var(--ember); }
+.titleSub { font-size: var(--fs-xs); color: var(--text-mut); }
+.titleRight { margin-left: auto; display: flex; align-items: center; gap: var(--sp-2); }
+
+.activity {
+  display: flex; flex-direction: column; align-items: center; gap: var(--sp-2);
+  width: 50px; flex: none; padding: var(--sp-3) 0; background: var(--ink-850);
+  border-right: 1px solid var(--line);
+}
+.activity[data-horizontal="true"] { flex-direction: row; width: auto; height: 48px; padding: 0 var(--sp-3); border-right: none; border-bottom: 1px solid var(--line); }
+
+.statusbar {
+  display: flex; align-items: center; gap: var(--sp-3); height: 24px; flex: none;
+  padding: 0 var(--sp-3); background: var(--ember-deep); color: #1a1208;
+  font: 500 var(--fs-xs)/1 var(--font-mono); letter-spacing: .02em;
+}
+.statusbar .dot { width: 7px; height: 7px; border-radius: 50%; background: #1a1208; }
+.statusbar .right { margin-left: auto; display: flex; gap: var(--sp-3); }
+
+/* react-resizable-panels */
+.group { width: 100%; height: 100%; }
+.handleH { width: 6px; background: transparent; transition: background var(--dur) var(--ease); position: relative; }
+.handleV { height: 6px; background: transparent; transition: background var(--dur) var(--ease); }
+.handleH:hover, .handleV:hover, .handleH[data-resize-handle-state="drag"], .handleV[data-resize-handle-state="drag"] { background: var(--ember-glow); }
+.handleH::after { content: ""; position: absolute; inset: 0 2px; background: var(--line); }
+.handleH:hover::after { background: var(--ember-deep); }
+
+.shell { display: flex; flex-direction: column; height: 100vh; }
+.body { flex: 1; min-height: 0; display: flex; }
+.fill { flex: 1; min-width: 0; min-height: 0; }

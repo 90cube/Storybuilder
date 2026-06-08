@@ -1,0 +1,24 @@
+/* 트리 노드 컨텍스트 메뉴 (⋯) — 메뉴 본체는 포털(fixed)로 띄워 패널 클리핑 회피 */
+.trigger { width: 20px; height: 20px; border-radius: 50%; border: none; background: transparent; cursor: pointer;
+  color: var(--text-mut); font-size: 14px; line-height: 1; display: grid; place-items: center; padding: 0; flex: none;
+  opacity: .6; transition: opacity var(--dur) var(--ease), background var(--dur) var(--ease); }
+.trigger:hover { opacity: 1; background: var(--ink-650); color: var(--ember-b); }
+
+.menu { position: fixed; z-index: 1000; min-width: 176px; max-height: 70vh; overflow: auto;
+  background: var(--ink-800, #16161e); border: 1px solid var(--line-2); border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.55); padding: 4px; }
+.item { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 5px;
+  font: 500 var(--fs-sm)/1 var(--font-body); color: var(--text); cursor: pointer; white-space: nowrap; }
+.item:hover { background: var(--ink-700); }
+.lbl { flex: 1; }
+.arrow { color: var(--text-mut); font-size: 10px; }
+.danger { color: var(--blood, #e06a6a); }
+.danger:hover { background: rgba(200,70,70,.14); }
+.disabled { opacity: .4; cursor: default; }
+.disabled:hover { background: transparent; }
+.sep { height: 1px; margin: 4px 6px; background: var(--line); }
+
+/* 펼쳐지는 이동 대상(인라인 들여쓰기) */
+.sub { margin: 2px 0 2px 8px; padding-left: 6px; border-left: 1px solid var(--line); }
+.sub .item { padding: 6px 8px; font-size: var(--fs-xs); color: var(--text-dim); }
+.sub .item:hover { color: var(--text); }

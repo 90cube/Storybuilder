@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"storybuilder-editor/backend/auth"
 	"storybuilder-editor/backend/schemadef"
 	"storybuilder-editor/backend/store"
 )
@@ -83,20 +84,41 @@ func TestListAPI(t *testing.T) {
 }
 
 func TestCreateAndGetAPI(t *testing.T) {
-	mux, _ := testSrv(t)
+	mux, db := testSrv(t)
+
+	// 유저 생성
+	if err := auth.CreateUser(db, "ACME-123456"); err != nil {
+		t.Fatal(err)
+	}
+
+	// 로그인 요청하여 세션 쿠키 받기
+	loginReq := `{"id":"ACME-123456","pin":"000000"}`
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, httptest.NewRequest("POST", "/api/login", strings.NewReader(loginReq)))
+	if rec.Code != 200 {
+		t.Fatalf("login failed: %d body: %s", rec.Code, rec.Body.String())
+	}
+	cookie := rec.Header().Get("Set-Cookie")
+	if cookie == "" {
+		t.Fatal("Set-Cookie not found")
+	}
 
 	// 필수 누락 → 400 missing
 	bad := `{"id":"x","type":"character","data":{}}`
-	rec := httptest.NewRecorder()
-	mux.ServeHTTP(rec, httptest.NewRequest("POST", "/api/entity", stringsReader(bad)))
+	rec = httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/entity", strings.NewReader(bad))
+	req.Header.Set("Cookie", cookie)
+	mux.ServeHTTP(rec, req)
 	if rec.Code != 400 {
-		t.Fatalf("missing required should be 400, got %d", rec.Code)
+		t.Fatalf("missing required should be 400, got %d body=%s", rec.Code, rec.Body.String())
 	}
 
 	// 정상 생성 → 200
 	ok := `{"id":"kalix","name":"칼릭스","type":"character","data":{"summary":"검사"}}`
 	rec = httptest.NewRecorder()
-	mux.ServeHTTP(rec, httptest.NewRequest("POST", "/api/entity", stringsReader(ok)))
+	req2 := httptest.NewRequest("POST", "/api/entity", strings.NewReader(ok))
+	req2.Header.Set("Cookie", cookie)
+	mux.ServeHTTP(rec, req2)
 	if rec.Code != 200 {
 		t.Fatalf("create should be 200, got %d body=%s", rec.Code, rec.Body.String())
 	}

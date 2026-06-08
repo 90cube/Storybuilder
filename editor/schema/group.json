@@ -1,0 +1,11 @@
+{
+  "type": "group",
+  "label": "집단",
+  "fields": [
+    { "key": "summary",    "label": "한줄요약", "datatype": "text",   "required": true },
+    { "key": "aliases",    "label": "별칭",     "datatype": "list",   "required": false },
+    { "key": "dfu_id",     "label": "DFU ID",   "datatype": "string", "required": false },
+    { "key": "merged_ids", "label": "병합ID",   "datatype": "list",   "required": false }
+  ],
+  "mixins": ["relations", "timeline", "secrets"]
+}

@@ -4,6 +4,7 @@ package store
 import (
 	"database/sql"
 	"fmt"
+	"time"
 
 	_ "github.com/go-sql-driver/mysql"
 	_ "modernc.org/sqlite"
@@ -25,5 +26,12 @@ func Open(dialect, dsn string) (*sql.DB, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open %s: %w", dialect, err)
 	}
+	
+	if driver == "mysql" {
+		db.SetMaxOpenConns(100)
+		db.SetMaxIdleConns(10)
+		db.SetConnMaxLifetime(3 * time.Minute)
+	}
+
 	return db, nil
 }

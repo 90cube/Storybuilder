@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DNF StoryBuilder — 기능1 레인 삽입</title>
+  <link rel="stylesheet" href="/app.css" />
+</head>
+<body>
+  <header class="titlebar">
+    <span class="logo">◆ DNF StoryBuilder</span>
+    <span class="subtitle">기능1 · 인과 갭에 캐릭터 끼워넣기</span>
+    <span id="llm-status" class="status-dot" title="LLM 연결 상태">●</span>
+  </header>
+
+  <div class="workbench">
+    <!-- 좌: 사건/라인 트리 + 앵커 슬롯 -->
+    <aside class="sidebar">
+      <div class="panel-title">사건 (sequence 순)</div>
+      <div class="anchors">
+        <div class="slot" data-slot="before">
+          <span class="slot-label">처음 앵커</span>
+          <span class="slot-val" id="slot-before">미선택</span>
+        </div>
+        <div class="slot" data-slot="after">
+          <span class="slot-label">끝 앵커</span>
+          <span class="slot-val" id="slot-after">미선택</span>
+        </div>
+        <div class="hint">사건을 클릭하면 활성 슬롯에 지정. 슬롯 헤더 클릭으로 활성 전환.</div>
+      </div>
+      <ul id="event-list" class="event-list"></ul>
+    </aside>
+
+    <!-- 중앙: 원본 / 삽입 분할 뷰 + 검증 -->
+    <main class="viewer">
+      <div class="tabs">
+        <span class="tab">원본 서사</span>
+        <span class="tab">삽입 서사</span>
+      </div>
+      <div class="split">
+        <section class="pane" id="pane-original"><div class="placeholder">생성 전</div></section>
+        <section class="pane" id="pane-inserted"><div class="placeholder">생성 전</div></section>
+      </div>
+      <div class="validation" id="validation">tbg 검증 결과가 여기 표시됩니다.</div>
+    </main>
+
+    <!-- 우: 컨트롤 (신캐 / 플롯 / 프롬프트 / 생성) -->
+    <aside class="controls">
+      <div class="panel-title">신규 캐릭터</div>
+      <input id="c-name" placeholder="이름 (예: 카르닉스)" />
+      <input id="c-concept" placeholder="콘셉트 (직업·정체성)" />
+      <textarea id="c-motive" rows="2" placeholder="동기 (이 구간에 끼어드는 이유)"></textarea>
+
+      <div class="panel-title">플롯</div>
+      <select id="plot"></select>
+
+      <div class="panel-title">시스템(마스터) 프롬프트 <span class="mut">편집 가능</span></div>
+      <textarea id="system" rows="9" class="mono"></textarea>
+
+      <button id="gen" class="primary">이야기 2개 생성</button>
+      <div id="busy" class="busy" hidden>생성 중… (로컬 31B, 수십 초)</div>
+    </aside>
+  </div>
+  <script src="/app.js"></script>
+</body>
+</html>
