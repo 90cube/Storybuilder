@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Badge, Button, Spinner, Toggle } from "../components/primitives";
+import { Badge, Button, Spinner } from "../components/primitives";
 import { AspectLayout, ResizableSplit, StatusBar, Titlebar } from "../components/shell";
 import { type ChapterDetail, type CanonItem, type GraphEntity } from "../lib/useCreator";
-import { CHAPTER_AUTOSAVE_MS, DRAFT_TARGET_CHARS, ANALYZE_DEBOUNCE_MS } from "../lib/const";
+import { CHAPTER_AUTOSAVE_MS, ANALYZE_DEBOUNCE_MS } from "../lib/const";
 import { stateIdx } from "../lib/pipeline";
 import { CreatorProvider, useCreatorCtx } from "./CreatorProvider";
 import { ExplorerTree } from "./explorer/ExplorerTree";
 import { useProjectTree } from "./explorer/useProjectTree";
+import { ChapterEditor } from "./editor/ChapterEditor";
+import { AnalysisPanel } from "./editor/AnalysisPanel";
+import { useChapterDraft } from "./editor/useChapterDraft";
 import { EntityEditor } from "./EntityEditor";
 import { LaneCanvas } from "./LaneCanvas";
 import { PartialEditBar } from "./PartialEditBar";
@@ -31,8 +34,6 @@ function WriterShellInner() {
   const api = useCreatorCtx();
   const { currentProj } = api;
   const [active, setActive] = useState<ChapterDetail | null>(null);
-  const [text, setText] = useState("");
-  const [saved, setSaved] = useState<string>("");
   const [busy, setBusy] = useState<string>("");
   const [result, setResult] = useState<{ kind: string; text: string } | null>(null);
   const [cands, setCands] = useState<{ name: string; description?: string }[] | null>(null);
@@ -41,14 +42,17 @@ function WriterShellInner() {
   const [dbEnts, setDbEnts] = useState<GraphEntity[]>([]);
   const [analysis, setAnalysis] = useState<{ events: CanonItem[]; entities: CanonItem[]; relations: CanonItem[] } | null>(null);
   const [stagedNote, setStagedNote] = useState("");
-  const [sel, setSel] = useState<{ start: number; end: number; text: string } | null>(null);
   const [autoAnalyze, setAutoAnalyze] = useState(false);
   const [centerMode, setCenterMode] = useState<CenterMode>("write");
-  const timer = useRef<number>(0);
   const aTimer = useRef<number>(0);
-  const textRef = useRef<string>("");
   const autoRef = useRef(false);
   autoRef.current = autoAnalyze;
+
+  // 본문 초안: chapterId 변화로 자동 초기화. text·doSave·sel은 파이프라인(F6)에서도 사용.
+  const cid = active?.chapter.id ?? null;
+  const draft = useChapterDraft({ chapterId: cid, initialText: active?.texts.draft?.text ?? "" });
+  const { text, saved, sel, onText, onSelectText, doSave, replaceSelection, insertAfterSelection, setSel, setText } = draft;
+
   const refreshDb = useCallback(async () => {
     if (currentProj == null) { setDbEnts([]); return; }
     try { setDbEnts(await api.graphEntities(currentProj)); } catch { /* */ }
@@ -57,9 +61,8 @@ function WriterShellInner() {
 
   const openChapter = async (id: number) => {
     const d = await api.getChapter(id);
-    const draft = d.texts.draft?.text ?? "";
-    setActive(d); api.setCurrentProj(d.chapter.project_id); setText(draft); textRef.current = draft; setSaved("불러옴");
-    setCands(null); setCanon(null); setResult(null); setSel(null); setStagedNote("");
+    setActive(d); api.setCurrentProj(d.chapter.project_id);
+    setCands(null); setCanon(null); setResult(null); setStagedNote("");
   };
   const tree = useProjectTree({ onOpenChapter: openChapter, active, setActive });
   const saveTitle = async () => {
@@ -67,44 +70,11 @@ function WriterShellInner() {
     await api.renameChapter(active.chapter.id, active.chapter.title);
     tree.loadChapters(active.chapter.season_id);
   };
-
-  // 저장 1곳: 최신 textRef를 백엔드로. 블러·디바운스·생성전 flush가 공용으로 호출.
-  const cid = active?.chapter.id ?? null;
-  const doSave = useCallback(async () => {
-    if (cid == null) return;
-    setSaved("저장 중…");
-    try { await api.saveText(cid, textRef.current); setSaved("저장됨 " + new Date().toLocaleTimeString()); }
-    catch (e) { setSaved("저장 실패: " + (e as Error).message); }
-  }, [cid, api.saveText]);
-  const onText = (v: string) => { setText(v); textRef.current = v; setSaved("수정됨 · 대기"); };
-  const onSelectText = (e: { currentTarget: HTMLTextAreaElement }) => {
-    const t = e.currentTarget;
-    if (t.selectionEnd > t.selectionStart) setSel({ start: t.selectionStart, end: t.selectionEnd, text: t.value.slice(t.selectionStart, t.selectionEnd) });
-    else setSel(null);
-  };
-  const replaceSelection = (s: string) => {
-    if (!sel) return;
-    const nv = text.slice(0, sel.start) + s + text.slice(sel.end);
-    setText(nv); textRef.current = nv; setSel(null); doSave();
-  };
-  const insertAfterSelection = (s: string) => {
-    if (!sel) return;
-    const nv = text.slice(0, sel.end) + "\n" + s + text.slice(sel.end);
-    setText(nv); textRef.current = nv; setSel(null); doSave();
-  };
   const onConfirmDraft = async () => {
     if (!active) return;
     try { await api.advance(active.chapter.id, "POLISH"); setActive({ ...active, state: "POLISH" }); }
     catch (e) { alert("초안 확정 실패: " + (e as Error).message); }
   };
-
-  // 무동작 N초 후 자동저장 (블러/생성전 즉시저장과 병행)
-  useEffect(() => {
-    if (cid == null) return;
-    window.clearTimeout(timer.current);
-    timer.current = window.setTimeout(doSave, CHAPTER_AUTOSAVE_MS);
-    return () => window.clearTimeout(timer.current);
-  }, [text, cid, doSave]);
 
   // 초안 실시간 분석 (전체 노드·엣지·사건). 수동 버튼 + 자동(입력 멈춘 뒤).
   const analyzeNow = useCallback(async () => {
@@ -144,9 +114,9 @@ function WriterShellInner() {
   };
   const accept = async () => {
     if (!active || !result) return;
-    setText(result.text); textRef.current = result.text;
-    await api.saveText(active.chapter.id, result.text);
-    setResult(null); setSaved("저장됨 " + new Date().toLocaleTimeString());
+    setText(result.text);  // textRef 동기화는 draft.setText가 보장 → doSave가 최신 본문 저장
+    await doSave();
+    setResult(null);
   };
   const onDetect = async () => {
     if (!active || busy) return;
@@ -181,8 +151,6 @@ function WriterShellInner() {
     const r = await api.canonPromote(active.chapter.id, canon.entities, canon.relations, canon.events);
     setCanon(null); setActive((a) => a && { ...a, state: r.state }); refreshDb();
   };
-
-  const over = text.length > DRAFT_TARGET_CHARS;
 
   // 현재 화 상태 기반 버튼 활성/강조 (실제 작업과 연동). active=강조(이미 그 단계 도달).
   const cur = active?.state ?? "";
@@ -220,53 +188,13 @@ function WriterShellInner() {
 
   const editor = active && (
     <div className={w.editorWrap}>
-      <input className={w.titleInput} value={active.chapter.title} onBlur={saveTitle}
-        onChange={(e) => setActive({ ...active, chapter: { ...active.chapter, title: e.target.value } })} />
-      <textarea className={w.editor} value={text} onBlur={doSave} readOnly={!!sel}
-        onSelect={onSelectText} onMouseUp={onSelectText} onKeyUp={onSelectText}
-        onChange={(e) => onText(e.target.value)}
-        placeholder="여기에 ~2000자 초안을 씁니다. 드래그하면 아래에서 AI 부분수정. 멈추거나(10초) 칸을 벗어나면 자동 저장돼요." />
-      <div className={w.editBar}>
-        <span className={w.count} data-over={over}>{text.length} / {DRAFT_TARGET_CHARS}자{over ? " — 청킹 권고" : ""}</span>
-        {dbEnts.filter((e) => e.name && text.includes(e.name)).slice(0, 8).map((e) => (
-          <span key={e.id} className={w.inlineTag}>{e.name}</span>
-        ))}
-        <span className={w.savedBadge}><Badge tone="jade">저장: {saved || "—"}</Badge></span>
-      </div>
+      <ChapterEditor active={active} text={text} saved={saved} sel={sel} dbEnts={dbEnts}
+        onText={onText} onSelectText={onSelectText} doSave={doSave}
+        onTitleChange={(title) => setActive({ ...active, chapter: { ...active.chapter, title } })}
+        saveTitle={saveTitle} />
       {bottomBar}
-      <div className={w.analysisPanel}>
-        <div className={w.analysisHead}>
-          <span>초안 분석 — 노드·엣지·사건</span>
-          {analysis && <span className={w.aCount}>사건 {analysis.events.length} · 노드 {analysis.entities.length} · 엣지 {analysis.relations.length}</span>}
-          {stagedNote && <span className={w.aStaged}>✓ {stagedNote}</span>}
-          <span className={w.aTools}>
-            <span className={w.muted}>자동</span><Toggle on={autoAnalyze} onChange={setAutoAnalyze} />
-            <Button disabled={busy === "analyze"} onClick={analyzeNow}>
-              {busy === "analyze" ? <><Spinner /> 분석…</> : "분석"}</Button>
-            <Button variant="primary" disabled={!analysis || busy === "stage"} onClick={onStage}>
-              {busy === "stage" ? <><Spinner /> 추가…</> : "인과로 추가"}</Button>
-          </span>
-        </div>
-        {analysis ? (
-          <div className={w.analysisBody}>
-            <div className={w.aCol}>
-              <div className={w.aColH}>사건 ({analysis.events.length})</div>
-              {analysis.events.map((e, i) => <div key={i} className={w.aItem}>📅 {e.title}</div>)}
-              {!analysis.events.length && <div className={w.aEmpty}>—</div>}
-            </div>
-            <div className={w.aCol}>
-              <div className={w.aColH}>노드 ({analysis.entities.length})</div>
-              {analysis.entities.map((e, i) => <div key={i} className={w.aItem}>◆ {e.name} <span className={w.muted}>{e.category}</span></div>)}
-              {!analysis.entities.length && <div className={w.aEmpty}>—</div>}
-            </div>
-            <div className={w.aCol}>
-              <div className={w.aColH}>엣지 ({analysis.relations.length})</div>
-              {analysis.relations.map((r, i) => <div key={i} className={w.aItem}>{r.from} <span className={w.muted}>—{r.rel}→</span> {r.to}</div>)}
-              {!analysis.relations.length && <div className={w.aEmpty}>—</div>}
-            </div>
-          </div>
-        ) : <div className={w.aEmpty} style={{ padding: 12 }}>「분석」을 누르거나 자동을 켜면 초안의 사건·노드·엣지가 실시간으로 표시됩니다.</div>}
-      </div>
+      <AnalysisPanel analysis={analysis} stagedNote={stagedNote} autoAnalyze={autoAnalyze} busy={busy}
+        onAutoAnalyze={setAutoAnalyze} analyzeNow={analyzeNow} onStage={onStage} />
     </div>
   );
   const diff = active && result && (
