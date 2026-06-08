@@ -30,7 +30,12 @@
 빌더 에이전트. `explorer/useProjectTree.ts`(117) + `ExplorerTree.tsx`(107). WriterShell 555→**397줄**. 빌드 그린. 커밋 `142ab44`.
 - 계약 차이(의도): useProjectTree가 `onActiveInvalidated` 대신 `active`+`setActive` 수신 — rename/move는 active 무효화가 아니라 patch라 필요. `loadChapters`도 노출(saveTitle 공유). active 결합 5케이스 원본과 문자단위 동일 보존.
 
+## F5 ✅ Editor + Analysis 분리
+빌더 에이전트. `editor/useChapterDraft.ts`(57)+`ChapterEditor.tsx`(41)+`AnalysisPanel.tsx`(54). WriterShell 397→**325줄**. 빌드 그린. 커밋 `48a2f49`.
+- useChapterDraft에 `setText` 추가(F6 accept용). analysis는 busy 문자열 공유 때문에 WriterShellInner 유지(분리 시 행동 변함) — AnalysisPanel은 순수 표시만.
+- **본문모델 변경(#6) 보류**: openChapter가 draft 대신 최신 원고 표시하면 "최신본 편집→draft 저장" 불일치 → 별도 UX 결정사안. 리팩토링은 행동 불변 유지.
+
 ---
 
 ## 진행 예정 (에이전트 순차)
-F5(Editor+Analysis+본문모델) → F6(Pipeline+패널+레일, WriterShell≤200) → B2(/run FSM) → F7(서버 FSM 소비) → QA(품질검증) → finish.
+F6(Pipeline+패널+레일, WriterShell≤200) → B2(/run FSM) → F7(서버 FSM 소비) → QA(품질검증) → finish.
