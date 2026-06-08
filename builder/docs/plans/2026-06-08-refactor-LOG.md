@@ -22,7 +22,11 @@
 ## B1 ⏸ repo/entity 200줄 분리 — 저우선 보류
 - 231/217줄 = 소프트한도 ~200의 +15%, 내부 섹션 정돈됨. 5파일 분해는 응집도↓·기능이득 0·전사오류 리스크. CLAUDE.md "응집>분리". 고가치 작업 후 선택.
 
+## F3 ✅ CreatorContext (prop drilling 제거)
+빌더 에이전트. `CreatorProvider`+`useCreatorCtx`, WriterShell→`<CreatorProvider><WriterShellInner/>`. EntityEditor·LaneCanvas·PartialEditBar가 api/projectId를 ctx에서 취득. 빌드 그린(독립 검증 ✓). 커밋 `27d85ca`.
+- 계약 준수 메모: `setCurrentProj` 시그니처가 비-함수형이라 자동펼침 effect를 `setCurrentProj(currentProj ?? pid)`로(가드로 1회·null→동일). 행동 불변.
+
 ---
 
 ## 진행 예정 (에이전트 순차)
-F3(Context) → F4(Explorer) → F5(Editor+Analysis) → F6(Pipeline+패널+레일, WriterShell≤200) → B2(/run FSM) → F7(서버 FSM 소비) → QA(품질검증) → finish.
+F4(Explorer) → F5(Editor+Analysis) → F6(Pipeline+패널+레일, WriterShell≤200) → B2(/run FSM) → F7(서버 FSM 소비) → QA(품질검증) → finish.
