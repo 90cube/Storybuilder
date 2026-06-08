@@ -57,5 +57,10 @@ PipelineRail 스테퍼 순서를 서버 `api.states` 인덱스로. 미사용 TRA
 
 ---
 
-## QA (품질검증) — 진행 중
-자동 게이트(pytest·build·lint·줄수) + 코드리뷰(레이어·CANNOT·행동위험) + 브라우저 스모크.
+## QA ✅ 품질검증 — Approve
+- **자동 게이트**: pytest **13 passed**, `npm run build` 그린(tsc 0 에러). `npm run lint` 12 errors/9 warn = **전부 기존 부채**(set-state-in-effect: useCreator·useBuilder·EntityPicker는 editor 베이스라인부터 존재; 신규 훅 exhaustive-deps 9건은 api 안정객체 생략·안전). 본 PR 회귀 0.
+- **구조**: app/lib 200줄 초과 = AppShell.tsx(207, 기존·범위외) 1개뿐. WriterShell **133**. 직접 fetch 0(전부 api/ctx). 죽은 pipeline.ts 참조 0.
+- **코드리뷰(QA 에이전트)**: 6개 행동흐름(자동저장·부분수정·채택·disabled규칙·패널우선순위·정사상태표시) 전부 코드 보존 확인. 평결 **Approve**.
+- **브라우저 스모크(playwright, :5173)**: 앱 로드 0 에러 → 트리/엔티티(10)/탭/레일 렌더 → 시즌·화 열기 → 에디터(원고 6283자)·editBar·인라인태그·BottomBar(다듬기/완성본, EXPAND 강조)·스테퍼(DRAFT~REVISE done, EXPAND cur)·구조화버튼 활성 전부 정상. /run(B2) 런타임 200.
+
+### 최종 결과: 프런트 분해 리팩토링 완료 — WriterShell 555→133(-76%), useCreator 123→28, app/{explorer,editor,pipeline}/ + lib/api.ts. 백엔드 /run 단일출처·autosave 보존. pytest 13·build·smoke 그린. 보류=F0(vitest 툴체인)·B1(저우선)·본문모델#6(UX결정).
