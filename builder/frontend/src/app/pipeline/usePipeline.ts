@@ -19,10 +19,11 @@ type Opts = {
   refreshVersions: () => void;        // 생성으로 새 버전이 생기면 타임라인 갱신
   autoAnalyze: boolean;
   setAutoAnalyze: (on: boolean) => void;
+  enterReview: (base: string, incoming: string, revertTo: number | null, title: string) => boolean;
 };
 
 export function usePipeline(opts: Opts) {
-  const { active, setActive, text, doSave, applyText, refreshDb, refreshVersions, autoAnalyze, setAutoAnalyze } = opts;
+  const { active, setActive, text, doSave, applyText, refreshDb, refreshVersions, autoAnalyze, setAutoAnalyze, enterReview } = opts;
   const api = useCreatorCtx();
   const [busy, setBusy] = useState<string>("");
   const [cands, setCands] = useState<Cand[] | null>(null);
@@ -68,16 +69,23 @@ export function usePipeline(opts: Opts) {
     return () => window.clearTimeout(aTimer.current);
   }, [text, cid, autoAnalyze, analyzeNow]);
 
-  // ── 생성: 결과가 곧 새 head 버전 → 에디터 즉시 반영 + 버전 타임라인 갱신(맘에 안 들면 되돌리기) ──
+  // ── 생성 → diff 리뷰: 결과는 서버에서 이미 새 head 버전. 에디터 교체 대신 문단 리뷰 진입. ──
+  const MODE_LABEL: Record<string, string> = { draft: "초안", polish: "다듬기", expand: "완성본" };
   const onToggle = async (mode: string) => {
     if (!active || busy) return;
     setBusy(mode);
     try {
       await doSave();  // 현재 head를 먼저 저장(생성 입력)
-      const r = await api.gen(active.chapter.id, mode);
-      applyText(r.text);                       // 결과 = 새 head → 에디터 본문 갱신
+      const cid2 = active.chapter.id;
+      const revertTo = (await api.listVersions(cid2)).head;  // 저장 직후 head = 전부취소 복귀점
+      const base = text;
+      const r = await api.gen(cid2, mode);
       setActive({ ...active, state: r.state });
-      refreshVersions();                       // 새 버전 노드 타임라인에 반영
+      refreshVersions();                       // 새 버전 노드 타임라인 반영
+      if (!enterReview(base, r.text, revertTo, `${MODE_LABEL[mode] ?? mode} 결과 검토`)) {
+        applyText(r.text);                     // 변경 없음 — 본문 동기화만
+        alert("변경 없음 — 생성 결과가 현재 본문과 같습니다.");
+      }
     } catch (e) { alert("생성 실패: " + (e as Error).message); }
     finally { setBusy(""); }
   };

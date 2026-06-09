@@ -5,8 +5,8 @@ import { useCreatorCtx } from "../CreatorProvider";
 
 type Sel = { start: number; end: number; text: string } | null;
 
-export function useChapterDraft(opts: { chapterId: number | null; initialText: string }) {
-  const { chapterId, initialText } = opts;
+export function useChapterDraft(opts: { chapterId: number | null; initialText: string; paused?: boolean }) {
+  const { chapterId, initialText, paused } = opts;
   const api = useCreatorCtx();
   const [text, setTextState] = useState("");
   const [saved, setSaved] = useState<string>("");
@@ -45,13 +45,13 @@ export function useChapterDraft(opts: { chapterId: number | null; initialText: s
     setText(text.slice(0, sel.end) + "\n" + s + text.slice(sel.end)); setSel(null); doSave();
   };
 
-  // 무동작 N초 후 자동저장 (블러/생성전 즉시저장과 병행).
+  // 무동작 N초 후 자동저장 (블러/생성전 즉시저장과 병행). 리뷰 중(paused)엔 정지 — 잡음 버전 방지.
   useEffect(() => {
-    if (chapterId == null) return;
+    if (chapterId == null || paused) return;
     window.clearTimeout(timer.current);
     timer.current = window.setTimeout(doSave, CHAPTER_AUTOSAVE_MS);
     return () => window.clearTimeout(timer.current);
-  }, [text, chapterId, doSave]);
+  }, [text, chapterId, doSave, paused]);
 
   return { text, saved, sel, onText, onSelectText, doSave, replaceSelection, insertAfterSelection, setSel, setText };
 }

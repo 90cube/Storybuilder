@@ -17,6 +17,8 @@ import { CanonPanel } from "./pipeline/CanonPanel";
 import { BottomBar } from "./pipeline/BottomBar";
 import { useVersions } from "./version/useVersions";
 import { VersionTimeline } from "./version/VersionTimeline";
+import { useDiffReview } from "./review/useDiffReview";
+import { DiffReviewPane } from "./review/DiffReviewPane";
 import { EntityEditor } from "./EntityEditor";
 import { LaneCanvas } from "./LaneCanvas";
 import w from "./writer.module.css";
@@ -44,10 +46,12 @@ function WriterShellInner() {
   const [autoAnalyze, setAutoAnalyze] = useState(false);
   const [centerMode, setCenterMode] = useState<CenterMode>("write");
 
-  // 본문 초안: chapterId 변화로 자동 초기화. text·doSave·sel은 파이프라인에서도 사용.
+  // 본문 초안: chapterId 변화로 자동 초기화. 리뷰 중(paused)엔 자동저장 정지.
   const cid = active?.chapter.id ?? null;
-  const draft = useChapterDraft({ chapterId: cid, initialText: active?.texts.current?.text ?? active?.texts.draft?.text ?? "" });
-  const { text, saved, sel, onText, onSelectText, doSave, replaceSelection, insertAfterSelection, setSel } = draft;
+  const review = useDiffReview(cid);
+  const draft = useChapterDraft({ chapterId: cid, paused: review.st != null,
+    initialText: active?.texts.current?.text ?? active?.texts.draft?.text ?? "" });
+  const { text, saved, sel, onText, onSelectText, doSave, setSel } = draft;
 
   const refreshDb = useCallback(async () => {
     if (currentProj == null) { setDbEnts([]); return; }
@@ -57,7 +61,7 @@ function WriterShellInner() {
 
   const versions = useVersions(cid, draft.setText);  // 버전 트리(되돌리기 시 에디터 본문 갱신)
   const pipe = usePipeline({ active, setActive, text, doSave, applyText: draft.setText, refreshDb,
-    refreshVersions: versions.reload, autoAnalyze, setAutoAnalyze });
+    refreshVersions: versions.reload, autoAnalyze, setAutoAnalyze, enterReview: review.enter });
 
   const openChapter = async (id: number) => {
     const d = await api.getChapter(id);
@@ -71,6 +75,37 @@ function WriterShellInner() {
     tree.loadChapters(active.chapter.season_id);
   };
 
+  // ── diff 리뷰 핸들러: 병합 저장 / 전부 취소(head 복귀 또는 폐기) ──
+  const [revBusy, setRevBusy] = useState(false);
+  const applyMerged = async (m: string | null) => {
+    if (m == null) return;
+    setRevBusy(true);
+    try { draft.setText(m); await draft.doSave(); versions.reload(); }  // 병합본 → head 갱신/자식 노드
+    finally { setRevBusy(false); }
+  };
+  const cancelReview = async () => {
+    const r = review.st;
+    if (!r || cid == null) return;
+    if (r.revertTo == null) { review.discard(); return; }   // 부분수정: 폐기 = 원문 유지
+    setRevBusy(true);
+    try {
+      const res = await api.revertVersion(cid, r.revertTo); // head만 복귀(비파괴)
+      draft.setText(res.text); versions.reload(); review.discard();
+    } catch (e) { alert("되돌리기 실패: " + (e as Error).message); }
+    finally { setRevBusy(false); }
+  };
+  // 부분수정 적용 → 즉시 교체 대신 같은 리뷰로(교체 반영한 전문을 incoming으로)
+  const reviewReplace = (s: string) => {
+    if (!sel) return;
+    review.enter(text, text.slice(0, sel.start) + s + text.slice(sel.end), null, "부분수정 검토");
+    setSel(null);
+  };
+  const reviewInsert = (s: string) => {
+    if (!sel) return;
+    review.enter(text, text.slice(0, sel.end) + "\n" + s + text.slice(sel.end), null, "부분수정 검토");
+    setSel(null);
+  };
+
   const cur = active?.state ?? "";
   const left = <ExplorerTree tree={tree} active={active} onOpenChapter={openChapter} dbEnts={dbEnts} />;
 
@@ -81,7 +116,7 @@ function WriterShellInner() {
         onTitleChange={(title) => setActive({ ...active, chapter: { ...active.chapter, title } })}
         saveTitle={saveTitle} />
       <BottomBar chapterId={active.chapter.id} cur={cur} text={text} busy={pipe.busy} sel={sel}
-        onReplace={replaceSelection} onInsert={insertAfterSelection} onCloseSel={() => setSel(null)}
+        onReplace={reviewReplace} onInsert={reviewInsert} onCloseSel={() => setSel(null)}
         onRegistered={refreshDb} onToggle={pipe.onToggle} onConfirmDraft={pipe.onConfirmDraft} />
       <AnalysisPanel analysis={pipe.analysis} stagedNote={pipe.stagedNote} autoAnalyze={autoAnalyze}
         busy={pipe.busy} onAutoAnalyze={setAutoAnalyze} analyzeNow={pipe.analyzeNow} onStage={pipe.onStage} />
@@ -94,7 +129,12 @@ function WriterShellInner() {
       : pipe.cands
         ? <CharPanel cands={pipe.cands} cards={pipe.cards} busy={pipe.busy}
             onAssist={pipe.onAssist} onRegister={pipe.onRegister} onClose={pipe.closeCands} />
-        : editor;
+        : review.st
+          ? <DiffReviewPane st={review.st} busy={revBusy} onDecide={review.decide}
+              onAcceptAll={() => void applyMerged(review.finishAll())}
+              onCancelAll={() => void cancelReview()}
+              onFinish={() => void applyMerged(review.finish())} />
+          : editor;
   const centerInner = centerMode === "entities"
     ? <EntityEditor onChanged={refreshDb} />
     : centerMode === "canvas"
@@ -113,8 +153,10 @@ function WriterShellInner() {
   );
   const right = (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0, overflow: "auto" }}>
-      <PipelineRail active={active} text={text} busy={pipe.busy} onDetect={pipe.onDetect} onCanonDiff={pipe.onCanonDiff} />
-      {active && <VersionTimeline versions={versions.versions} head={versions.head} onRevert={versions.revert} />}
+      <PipelineRail active={active} text={text} busy={review.st ? "review" : pipe.busy}
+        onDetect={pipe.onDetect} onCanonDiff={pipe.onCanonDiff} />
+      {active && <VersionTimeline versions={versions.versions} head={versions.head}
+        onRevert={review.st ? async () => {} : versions.revert} />}
     </div>
   );
 
