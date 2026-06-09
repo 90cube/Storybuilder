@@ -3,7 +3,7 @@
 import json
 
 from builder.store.db import get_conn
-from builder.store.graph import _now, _slug, _eid, pid_of
+from builder.store.graph import _now, _eid, pid_of
 from builder.schemadef import loader
 
 
