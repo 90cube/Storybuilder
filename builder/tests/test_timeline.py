@@ -76,12 +76,12 @@ def test_diff_attaches_states():
 
 def test_api_diff_and_promote_timeline(monkeypatch):
     _fresh()
-    from builder.gen import statecap
-    monkeypatch.setattr(statecap.client, "chat",
-                        lambda *a, **k: '[{"name":"카인","state":"분노","change":"각성"}]')
     from builder.extract import service as ex
-    monkeypatch.setattr(ex, "extract_from_text",
-                        lambda *a, **k: {"entities": [{"name": "카인", "category": "인물"}], "relations": [], "events": []})
+    # 추출 1회 통합: extract_with_states가 엔티티에 state/statechange를 인라인으로 반환.
+    monkeypatch.setattr(ex, "extract_with_states",
+                        lambda *a, **k: {"entities": [{"name": "카인", "category": "인물",
+                                                       "state": "분노", "statechange": "각성"}],
+                                         "relations": [], "events": []})
     from builder.store import graph
     from builder.api.app import create_app
     from fastapi.testclient import TestClient

@@ -8,7 +8,6 @@ from builder.domain import pipeline
 from builder.extract import service as extract_svc
 from builder.postproc import service as post_svc
 from builder.canon import diff as canon
-from builder.gen import statecap
 
 router = APIRouter()
 
@@ -70,22 +69,15 @@ def canon_diff(chapter_id: int):
     pid = repo.project_of(chapter_id)
     world = repo.world_of(chapter_id)
     text = _final_text(ch)
+    # 추출 1회 원칙: 엔티티+관계+사건+'이 화 시점 상태'를 단일 호출로. DB 인물 카드(말투·성격·직전상태) 주입.
+    cards = graph.entities_in_text(pid, text)
+    for c in cards:
+        c["prev_state"] = entity.latest_state(graph._eid(pid, c["name"]))
     try:
-        ext = extract_svc.extract_from_text(text, world=world)
+        ext = extract_svc.extract_with_states(text, cards, world=world)
     except Exception as e:
         raise HTTPException(500, f"{type(e).__name__}: {e}")
-    states = []
-    try:  # 상태 캡처 실패해도 diff 자체는 진행 — 카드는 '추출된 엔티티'(신규 포함) 기준
-        cards, seen = [], set()
-        for e in ext.get("entities", []):
-            nm = (e.get("name") or "").strip()
-            if nm and nm not in seen:
-                seen.add(nm)
-                cards.append({"name": nm, "prev_state": entity.latest_state(graph._eid(pid, nm))})
-        states = statecap.capture(text, cards, world=world)
-    except Exception:
-        states = []
-    d = canon.diff_against_graph(ext, pid, states=states)
+    d = canon.diff_against_graph(ext, pid)  # ext 엔티티가 state/statechange를 인라인으로 보유
     repo.set_state(chapter_id, "EXTRACT")
     return {**d, "state": repo.get_state(chapter_id)}
 

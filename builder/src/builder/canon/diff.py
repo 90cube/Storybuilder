@@ -16,8 +16,10 @@ def diff_against_graph(extracted: dict, project_id: int, states: list[dict] | No
         if not nm:
             continue
         st = smap.get(nm, {})
+        # 인라인 state(추출 1회 통합) 우선, 없으면 별도 states= 맵 사용(하위호환).
         ents.append({**e, "change": "변경" if nm in known else "추가",
-                     "state": st.get("state", ""), "statechange": st.get("change", "")})
+                     "state": e.get("state") or st.get("state", ""),
+                     "statechange": e.get("statechange") or st.get("change", "")})
     rels = [{**r, "change": "추가"} for r in extracted.get("relations", [])]
     evs = [{**ev, "change": "추가"} for ev in extracted.get("events", [])]
     return {"entities": ents, "relations": rels, "events": evs}
