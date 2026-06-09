@@ -146,25 +146,33 @@ def upsert_event(ev: dict, project_id: int, who: str = "creator", protect: bool 
 
 
 def entities_in_text(project_id: int, text: str, limit: int = 12) -> list[dict]:
-    """본문에 이름이 등장하는 (작품) 엔티티 + 말투/성격 카드(부분수정 프롬프트 주입용)."""
+    """본문에 본명/별칭이 등장하는 (작품) 엔티티 + 말투/성격 카드(부분수정 프롬프트 주입용).
+
+    별칭으로도 매칭하므로 1글자 본명(오탐 위험으로 제외)도 2글자+ 별칭을 등록하면 잡힌다.
+    """
     out: list[dict] = []
     with get_conn() as c:
         rows = c.execute(
-            "SELECT name,category,description,data_json FROM entities WHERE project_id=? ORDER BY name",
+            "SELECT id,name,category,description,data_json FROM entities WHERE project_id=? ORDER BY name",
             (project_id,)).fetchall()
-    all_names = [r["name"] for r in rows if r["name"]]
+        arows = c.execute("SELECT alias,entity_id FROM aliases WHERE project_id=?", (project_id,)).fetchall()
+    alias_map: dict[str, list[str]] = {}
+    for a in arows:
+        alias_map.setdefault(a["entity_id"], []).append(a["alias"])
+    # 매칭 후보 = 본명 ∪ 별칭(2글자+). 부분문자열 가드용 전체 후보.
+    cands_of = {r["id"]: [n for n in ([r["name"]] + alias_map.get(r["id"], [])) if n and len(n) >= 2]
+                for r in rows}
+    all_cands = [n for cs in cands_of.values() for n in cs]
     for r in rows:
-        nm = r["name"]
-        # 오탐 제거: 1글자 이름 제외 + '더 긴 다른 엔티티 이름의 부분문자열(그 긴 이름도 본문에 있음)'이면 건너뜀.
-        if not nm or len(nm) < 2 or nm not in text:
-            continue
-        if any(o != nm and nm in o and o in text for o in all_names):
+        # 오탐 제거: 1글자 제외 + '더 긴 다른 후보의 부분문자열(그 긴 것도 본문에 있음)'이면 스킵.
+        if not any(n in text and not any(o != n and n in o and o in text for o in all_cands)
+                   for n in cands_of[r["id"]]):
             continue
         d = json.loads(r["data_json"] or "{}")
         persona = d.get("personality_traits") or d.get("mbti") or ""
         if isinstance(persona, list):
             persona = ", ".join(persona)
-        out.append({"name": nm, "category": r["category"] or "",
+        out.append({"name": r["name"], "category": r["category"] or "",
                     "speech_style": d.get("speech_style", ""),
                     "personality": persona,
                     "summary": r["description"] or d.get("summary", "")})

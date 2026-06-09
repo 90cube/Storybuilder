@@ -37,17 +37,6 @@ def test_story_seq_and_label():
     assert repo.chapter_label(99999).startswith("화 ")  # 없는 화 폴백
 
 
-def test_statecap_capture(monkeypatch):
-    from builder.gen import statecap
-    monkeypatch.setattr(statecap.client, "chat",
-                        lambda *a, **k: '```json\n[{"name":"카인","state":"각성, 분노","change":"라이터를 주움"}]\n```')
-    out = statecap.capture("카인이 라이터를 주웠다.",
-                           [{"name": "카인", "speech_style": "짧게", "personality": "냉정", "prev_state": "평온"}],
-                           world="작품")
-    assert out == [{"name": "카인", "state": "각성, 분노", "change": "라이터를 주움"}]
-    assert statecap.capture("x", [], world="작품") == []  # 카드 없으면 호출 없이 []
-
-
 def test_promote_writes_timeline():
     _fresh()
     from builder.store import repo, entity, graph

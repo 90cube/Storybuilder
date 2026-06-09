@@ -31,4 +31,17 @@ def test_entities_in_text_avoids_substring_and_1char():
     got = {e["name"] for e in graph.entities_in_text(pid, "수호자가 강을 지킨다")}
     assert "수호자" in got      # 더 긴 이름은 매칭
     assert "수호" not in got     # 부분문자열(수호자가 본문에 존재) → 오탐 제거
-    assert "강" not in got       # 1글자 이름 → 제외
+    assert "강" not in got       # 1글자 이름(별칭 없음) → 제외
+
+
+def test_entities_in_text_matches_via_alias():
+    _fresh()
+    from builder.store import repo, graph
+    from builder.store.db import get_conn
+    pid = repo.create_project("작품")
+    graph.upsert_entity({"name": "강", "category": "character"}, pid)  # 1글자 본명
+    eid = graph._eid(pid, "강")
+    with get_conn() as c:
+        c.execute("INSERT INTO aliases(project_id,alias,entity_id) VALUES(?,?,?)", (pid, "강대장", eid))
+    got = {e["name"] for e in graph.entities_in_text(pid, "강대장이 부대를 이끈다")}
+    assert "강" in got  # 1글자 본명도 2글자+ 별칭으로 매칭(오탐 위험 없이 우회)
