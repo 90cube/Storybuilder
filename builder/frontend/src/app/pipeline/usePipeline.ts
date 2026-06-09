@@ -34,6 +34,7 @@ export function usePipeline(opts: Opts) {
   const aTimer = useRef<number>(0);
   const autoRef = useRef(false);
   autoRef.current = autoAnalyze;
+  const lastAuto = useRef<string>("");  // 마지막 자동분석 본문 — 변화 없으면 재추출 skip(LLM 절약)
 
   /** 화 전환 시 파이프라인 결과 초기화 (openChapter가 호출). */
   const resetForChapter = useCallback(() => {
@@ -61,7 +62,9 @@ export function usePipeline(opts: Opts) {
   useEffect(() => {
     if (cid == null || !autoAnalyze) return;
     window.clearTimeout(aTimer.current);
-    aTimer.current = window.setTimeout(() => { if (autoRef.current) analyzeNow(); }, ANALYZE_DEBOUNCE_MS);
+    aTimer.current = window.setTimeout(() => {
+      if (autoRef.current && text !== lastAuto.current) { lastAuto.current = text; analyzeNow(); }
+    }, ANALYZE_DEBOUNCE_MS);
     return () => window.clearTimeout(aTimer.current);
   }, [text, cid, autoAnalyze, analyzeNow]);
 

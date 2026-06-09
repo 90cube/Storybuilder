@@ -12,17 +12,13 @@ export function useCreator() {
     setProjects(await api.listProjects());
   }, []);
   useEffect(() => { reloadProjects().catch(() => {}); }, [reloadProjects]);
+  // 파이프라인 단계 목록은 정적 → 앱 1회 로드(화 열 때마다 재요청하지 않음).
+  useEffect(() => { api.statesList().then(setStates).catch(() => {}); }, []);
 
-  // 상태 부수효과가 있는 둘만 훅에서 감싼다(나머지는 순수 api 그대로).
+  // 상태 부수효과가 있는 createProject만 훅에서 감싼다(나머지·getChapter는 순수 api 그대로).
   const createProject = useCallback(async (title: string) => {
     await api.createProject(title); await reloadProjects();
   }, [reloadProjects]);
-  const getChapter = useCallback(async (id: number) => {
-    const d = await api.getChapter(id);
-    const r = await api.getRun(id);
-    setStates(r.states);
-    return d;
-  }, []);
 
-  return { ...api, projects, states, reloadProjects, createProject, getChapter };
+  return { ...api, projects, states, reloadProjects, createProject };
 }

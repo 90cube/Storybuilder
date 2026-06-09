@@ -123,6 +123,12 @@ def save_text(chapter_id: int, body: TextIn):
     return {"ok": True}
 
 
+@router.get("/pipeline/states")
+def pipeline_states():
+    """파이프라인 단계 목록(정적). 화마다 재요청할 필요 없이 앱 1회 로드용."""
+    return pipeline.STATES
+
+
 @router.get("/chapter/{chapter_id}/run")
 def run_state(chapter_id: int):
     return {"state": repo.get_state(chapter_id), "states": pipeline.STATES}

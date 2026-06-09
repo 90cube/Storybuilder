@@ -20,8 +20,6 @@ export type ChapterDetail = {
   state: string;
   texts: Record<string, { text: string; version: number }>;
 };
-/** FSM 가용액션(서버 단일 진실원) — /api/run/{id}. (B2에서 백엔드 추가) */
-export type RunInfo = { state: string; states: string[]; canAdvanceTo: string[]; tools: { detect: boolean; canon: boolean } };
 
 async function j<T>(url: string, opts?: RequestInit): Promise<T> {
   const r = await fetch(url, opts);
@@ -42,8 +40,7 @@ export const createSeason = (projectId: number, title = "") => post("/api/season
 export const listChapters = (seasonId: number) => j<Chapter[]>(`/api/chapters?season=${seasonId}`);
 export const createChapter = (seasonId: number, title: string) => post("/api/chapters", { season_id: seasonId, title });
 export const getChapter = (id: number) => j<ChapterDetail>(`/api/chapter/${id}`);
-export const getRun = (id: number) => j<{ states: string[] }>(`/api/chapter/${id}/run`);
-export const runInfo = (id: number) => j<RunInfo>(`/api/run/${id}`);
+export const statesList = () => j<string[]>("/api/pipeline/states");  // 정적 단계목록(앱 1회 로드)
 export const saveText = (id: number, text: string) =>
   j(`/api/chapter/${id}/text`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }) });
 export const advance = (id: number, to_state: string) => post(`/api/run/${id}/advance`, { to_state });
