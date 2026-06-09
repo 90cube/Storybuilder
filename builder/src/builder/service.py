@@ -9,7 +9,7 @@ from builder.llm import client, prompts
 def generate_pair(before_id: str, after_id: str, new_characters: list[NewCharacter],
                   plot_key: str, context_ids: list[str] | None = None,
                   system: str | None = None, save: bool = True,
-                  events_by_id: dict | None = None) -> dict:
+                  events_by_id: dict | None = None, world: str = "") -> dict:
     """선행→후행 앵커 사이에 신캐(1명 이상)를 끼운 (원본·삽입) 이야기 2개를 생성해 드래프트로 반환.
 
     events_by_id 가 주어지면(작품 events) 그것을, 없으면 corpus(load_events)를 사건 출처로 쓴다.
@@ -17,7 +17,7 @@ def generate_pair(before_id: str, after_id: str, new_characters: list[NewCharact
     by_id = events_by_id if events_by_id is not None else load_events()[0]
     req = build_request(by_id, before_id, after_id, new_characters,
                         plot_key, extra_context_ids=context_ids)
-    sys_prompt = (system or prompts.SYSTEM).strip()
+    sys_prompt = (system or prompts.system(world)).strip()
 
     original = client.chat(sys_prompt,
                            prompts.original_prompt(req.anchor_before, req.anchor_after),

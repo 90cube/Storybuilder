@@ -182,6 +182,13 @@ def world_of(chapter_id: int) -> str:
         return r["title"] if r else ""
 
 
+def project_title(pid: int) -> str:
+    """작품(project) 제목 = 세계관 이름. project_id 기준(레인 생성 등 world 주입용)."""
+    with get_conn() as c:
+        r = c.execute("SELECT title FROM projects WHERE id=?", (pid,)).fetchone()
+        return r["title"] if r else ""
+
+
 def project_of(chapter_id: int) -> int | None:
     """화가 속한 프로젝트(작품) id — 그래프를 작품별로 격리할 때 사용."""
     with get_conn() as c:

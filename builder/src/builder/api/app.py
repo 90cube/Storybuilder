@@ -59,8 +59,10 @@ def create_app() -> FastAPI:
         return [{"key": k, "name": v[0]} for k, v in PLOTS.items()]
 
     @app.get("/api/prompt")
-    def prompt():
-        return {"system": prompts.SYSTEM}
+    def prompt(project: int | None = None):
+        from builder.store import repo
+        world = repo.project_title(project) if project else ""
+        return {"system": prompts.system(world)}
 
     @app.post("/api/generate")
     def generate(body: GenIn):

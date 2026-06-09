@@ -4,16 +4,16 @@ from builder.domain.insertion import NewCharacter
 from builder.plot.templates import PLOTS
 from builder import service
 
-# 데모 시나리오: 용의 전쟁(바칼 패주) → 바칼의 천계 지배 사이에 신캐를 끼운다.
+# 데모 시나리오: 두 앵커 사건 사이에 신규 인물을 끼워 이야기 2개 생성(범용 예시).
 BEFORE_ID = "EVT_001"
 AFTER_ID = "EVT_002"
 CONTEXT_IDS = ["EVT_014"]
 PLOT_KEY = "kishōtenketsu"
 
 NEW_CHARACTER = NewCharacter(
-    name="카르닉스",
-    concept="용의 전쟁에서 패한 영원수 수호 진영의 마지막 추격자, 하급 용족 전사",
-    motive="천계로 도주하는 바칼을 끝까지 쫓아 영원수 독점의 대가를 묻는다",
+    name="신규인물",
+    concept="두 앵커 사건 사이에 등장하는 조연",
+    motive="앞 사건의 여파를 쫓아 뒤 사건의 결말로 자연스럽게 수렴한다",
 )
 
 

@@ -184,6 +184,6 @@ def lane_generate(body: LaneGenIn):
             body.before_id, body.after_id,
             [NewCharacter(**c.model_dump()) for c in body.new_characters],
             body.plot_key, context_ids=body.context_ids, system=body.system,
-            save=False, events_by_id=by_id)
+            save=False, events_by_id=by_id, world=repo.project_title(body.project_id))
     except Exception as e:
         raise HTTPException(500, f"{type(e).__name__}: {e}")
