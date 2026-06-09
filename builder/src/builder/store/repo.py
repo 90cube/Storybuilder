@@ -30,11 +30,22 @@ def rename_project(pid: int, title: str) -> None:
         c.execute("UPDATE projects SET title=?, updated_at=? WHERE id=?", (title, _now(), pid))
 
 
+# 작품(project_id)으로 격리되는 그래프 테이블 — 작품 삭제 시 함께 비워야 고아 행이 안 남는다.
+_PROJECT_GRAPH_TABLES = ("entities", "relations", "events", "timeline", "secrets", "edit_log", "aliases")
+
+
+def _wipe_project_graph(c, pid: int) -> None:
+    """작품 격리 그래프 행(엔티티·관계·사건·타임라인·비밀·편집로그·별칭)을 제거. 같은 트랜잭션 내."""
+    for t in _PROJECT_GRAPH_TABLES:
+        c.execute(f"DELETE FROM {t} WHERE project_id=?", (pid,))
+
+
 def delete_project(pid: int) -> None:
     with get_conn() as c:
         sids = [r["id"] for r in c.execute("SELECT id FROM seasons WHERE project_id=?", (pid,))]
         cids = [r["id"] for r in c.execute("SELECT id FROM chapters WHERE project_id=?", (pid,))]
         _wipe_chapters(c, cids)
+        _wipe_project_graph(c, pid)
         for sid in sids:
             c.execute("DELETE FROM seasons WHERE id=?", (sid,))
         c.execute("DELETE FROM projects WHERE id=?", (pid,))
