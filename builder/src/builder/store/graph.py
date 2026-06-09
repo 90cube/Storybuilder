@@ -28,9 +28,13 @@ def pid_of(eid: str) -> int | None:
 
 
 def known_names(project_id: int) -> set[str]:
+    """작품의 알려진 이름 = 엔티티 본명 ∪ 별칭(aliases). 별명으로 부른 인물 중복 재검출 방지."""
     with get_conn() as c:
-        return {r["name"] for r in c.execute(
+        names = {r["name"] for r in c.execute(
             "SELECT name FROM entities WHERE project_id=?", (project_id,))}
+        names |= {r["alias"] for r in c.execute(
+            "SELECT alias FROM aliases WHERE project_id=?", (project_id,))}
+        return {n for n in names if n}
 
 
 def list_entities(project_id: int, limit: int = 2000) -> list[dict]:
@@ -148,17 +152,22 @@ def entities_in_text(project_id: int, text: str, limit: int = 12) -> list[dict]:
         rows = c.execute(
             "SELECT name,category,description,data_json FROM entities WHERE project_id=? ORDER BY name",
             (project_id,)).fetchall()
+    all_names = [r["name"] for r in rows if r["name"]]
     for r in rows:
         nm = r["name"]
-        if nm and nm in text:
-            d = json.loads(r["data_json"] or "{}")
-            persona = d.get("personality_traits") or d.get("mbti") or ""
-            if isinstance(persona, list):
-                persona = ", ".join(persona)
-            out.append({"name": nm, "category": r["category"] or "",
-                        "speech_style": d.get("speech_style", ""),
-                        "personality": persona,
-                        "summary": r["description"] or d.get("summary", "")})
-            if len(out) >= limit:
-                break
+        # 오탐 제거: 1글자 이름 제외 + '더 긴 다른 엔티티 이름의 부분문자열(그 긴 이름도 본문에 있음)'이면 건너뜀.
+        if not nm or len(nm) < 2 or nm not in text:
+            continue
+        if any(o != nm and nm in o and o in text for o in all_names):
+            continue
+        d = json.loads(r["data_json"] or "{}")
+        persona = d.get("personality_traits") or d.get("mbti") or ""
+        if isinstance(persona, list):
+            persona = ", ".join(persona)
+        out.append({"name": nm, "category": r["category"] or "",
+                    "speech_style": d.get("speech_style", ""),
+                    "personality": persona,
+                    "summary": r["description"] or d.get("summary", "")})
+        if len(out) >= limit:
+            break
     return out
