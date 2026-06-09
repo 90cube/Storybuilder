@@ -68,11 +68,20 @@ class LaneGenIn(BaseModel):
     system: str | None = None
 
 
-def _style_for(pid: int, source: str) -> str:
+def _latest_text(ch: dict) -> str:
+    """현재 최신본(final>expand>polish>draft). gen 입력을 과거 draft로 고정하지 않게."""
+    t = ch["texts"]
+    for k in ("final", "expand", "polish", "draft"):
+        if t.get(k):
+            return t[k]["text"]
+    return ""
+
+
+def _style_for(pid: int, source: str, chapter_id: int | None = None) -> str:
     if source == "field":
         return repo.get_style(pid)
     if source == "auto":
-        return repo.latest_prose(pid)
+        return repo.latest_prose(pid, chapter_id=chapter_id)  # 현재 화 기준
     return ""
 
 
@@ -81,7 +90,7 @@ def gen(body: GenIn):
     ch = repo.get_chapter(body.chapter_id)
     if not ch:
         raise HTTPException(404, "chapter not found")
-    src = ch["texts"].get("draft", {}).get("text", "")
+    src = _latest_text(ch)  # 과거 draft 고정 X — 최신본을 입력으로(다듬기/완성본이 직선 진행)
     try:
         kind, out = modes.generate(body.mode, src, world=repo.world_of(body.chapter_id), system=body.system)
     except Exception as e:  # LLM 미기동·모드 오류
@@ -147,7 +156,7 @@ def assist_edit(body: AssistEditIn):
         raise HTTPException(404, "chapter not found")
     world = repo.world_of(body.chapter_id)
     mode = "draft" if repo.get_state(body.chapter_id) == "DRAFT" else "enrich"
-    style = _style_for(pid, body.style_source)
+    style = _style_for(pid, body.style_source, body.chapter_id)
     cards = graph.entities_in_text(pid, f"{body.selected} {body.before} {body.after}")
     try:
         out = assist_svc.edit(body.selected, body.before, body.after, world=world,

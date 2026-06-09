@@ -234,10 +234,14 @@ def set_style(pid: int, text: str) -> None:
         c.execute("UPDATE projects SET style_guide=?, updated_at=? WHERE id=?", (text, _now(), pid))
 
 
-def latest_prose(pid: int, limit: int = 800) -> str:
-    """작품에서 가장 최근 원고 산문 일부(문체 자동 샘플용)."""
+def latest_prose(pid: int, limit: int = 800, chapter_id: int | None = None) -> str:
+    """문체 자동 샘플용 산문. chapter_id 주면 그 화 한정(현재 화 기준), 없으면 작품 전체 최신."""
     with get_conn() as c:
-        r = c.execute("""SELECT m.text FROM manuscripts m JOIN chapters ch ON ch.id=m.chapter_id
-                         WHERE ch.project_id=? AND m.text IS NOT NULL AND m.text!=''
-                         ORDER BY m.id DESC LIMIT 1""", (pid,)).fetchone()
+        if chapter_id is not None:
+            r = c.execute("""SELECT text FROM manuscripts WHERE chapter_id=? AND text IS NOT NULL AND text!=''
+                             ORDER BY id DESC LIMIT 1""", (chapter_id,)).fetchone()
+        else:
+            r = c.execute("""SELECT m.text FROM manuscripts m JOIN chapters ch ON ch.id=m.chapter_id
+                             WHERE ch.project_id=? AND m.text IS NOT NULL AND m.text!=''
+                             ORDER BY m.id DESC LIMIT 1""", (pid,)).fetchone()
         return (r["text"][:limit] if r else "")
