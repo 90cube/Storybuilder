@@ -6,9 +6,11 @@ from builder.api.structure_routes import router as structure_router
 from builder.api.gen_routes import router as gen_router
 from builder.api.graph_routes import router as graph_router
 from builder.api.canon_routes import router as canon_router
+from builder.api.version_routes import router as version_router
 
 router = APIRouter(prefix="/api")
 router.include_router(structure_router)
 router.include_router(gen_router)
 router.include_router(graph_router)
 router.include_router(canon_router)
+router.include_router(version_router)

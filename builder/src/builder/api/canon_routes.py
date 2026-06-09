@@ -3,7 +3,7 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from builder.store import repo, graph, entity
+from builder.store import repo, graph, entity, version
 from builder.domain import pipeline
 from builder.extract import service as extract_svc
 from builder.postproc import service as post_svc
@@ -68,7 +68,7 @@ def canon_diff(chapter_id: int):
         raise HTTPException(404, "chapter not found")
     pid = repo.project_of(chapter_id)
     world = repo.world_of(chapter_id)
-    text = _final_text(ch)
+    text = version.head_text(chapter_id) or _final_text(ch)  # 정사 추출도 현재 head 본문 대상
     # 추출 1회 원칙: 엔티티+관계+사건+'이 화 시점 상태'를 단일 호출로. DB 인물 카드(말투·성격·직전상태) 주입.
     cards = graph.entities_in_text(pid, text)
     for c in cards:

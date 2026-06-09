@@ -16,7 +16,7 @@ def _chapter(c):
     return pid, cid
 
 
-def test_gen_reads_latest_not_draft(monkeypatch):
+def test_gen_reads_head_version(monkeypatch):
     _fresh()
     from builder.gen import modes
     cap = {}
@@ -25,15 +25,15 @@ def test_gen_reads_latest_not_draft(monkeypatch):
         cap["src"] = text
         return ("polish", "OUT")
     monkeypatch.setattr(modes, "generate", fake_gen)
-    from builder.store import repo
+    from builder.store import version
     from builder.api.app import create_app
     from fastapi.testclient import TestClient
     c = TestClient(create_app())
     pid, cid = _chapter(c)
-    c.put(f"/api/chapter/{cid}/text", json={"text": "초안본문"})
-    repo.add_manuscript(cid, "polish", "폴리시본문")   # 최신본
-    c.post("/api/gen", json={"chapter_id": cid, "mode": "polish"})
-    assert cap["src"] == "폴리시본문"   # draft가 아니라 최신본을 입력으로
+    c.put(f"/api/chapter/{cid}/text", json={"text": "원안"})   # head(초기 draft)=원안
+    version.create(cid, "다듬은본", kind="polish")              # head=다듬은본
+    c.post("/api/gen", json={"chapter_id": cid, "mode": "expand"})
+    assert cap["src"] == "다듬은본"   # gen 입력 = 현재 head 버전(과거 draft 아님)
 
 
 def test_latest_prose_scoped_to_chapter():

@@ -3,7 +3,7 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from builder.store import repo, graph
+from builder.store import repo, graph, version
 from builder.domain import pipeline
 from builder.gen import modes
 from builder.extract import service as extract_svc
@@ -90,12 +90,13 @@ def gen(body: GenIn):
     ch = repo.get_chapter(body.chapter_id)
     if not ch:
         raise HTTPException(404, "chapter not found")
-    src = _latest_text(ch)  # 과거 draft 고정 X — 최신본을 입력으로(다듬기/완성본이 직선 진행)
+    src = version.head_text(body.chapter_id)  # 현재 head(최신본)를 입력으로
     try:
         kind, out = modes.generate(body.mode, src, world=repo.world_of(body.chapter_id), system=body.system)
     except Exception as e:  # LLM 미기동·모드 오류
         raise HTTPException(500, f"{type(e).__name__}: {e}")
-    repo.add_manuscript(body.chapter_id, kind, out)
+    repo.add_manuscript(body.chapter_id, kind, out)   # 호환 유지
+    version.create(body.chapter_id, out, kind=body.mode)   # 결과가 즉시 새 head 버전(분기·롤백)
     to = "EXPAND" if body.mode == "expand" else "POLISH"
     if pipeline.can_advance(repo.get_state(body.chapter_id), to):
         repo.set_state(body.chapter_id, to)

@@ -38,3 +38,24 @@ def test_chapter_initial_version_and_autosave_head():
     assert version.head_text(cid) == "새본문"     # 자동저장이 head를 in-place 갱신
     assert len(version.list(cid)) == 1            # draft head in-place → 노드 안 늘어남
     assert repo.get_chapter(cid)["texts"]["current"]["text"] == "새본문"  # 에디터 본문 = head
+
+
+def test_api_gen_creates_version_and_revert(monkeypatch):
+    _fresh()
+    from builder.gen import modes
+    monkeypatch.setattr(modes, "generate", lambda mode, text, **k: (mode, f"[{mode}]{text}"))
+    from builder.store import version
+    from builder.api.app import create_app
+    from fastapi.testclient import TestClient
+    c = TestClient(create_app())
+    pid = c.post("/api/projects", json={"title": "작"}).json()["id"]
+    sid = c.get(f"/api/seasons?project={pid}").json()[0]["id"]
+    cid = c.post("/api/chapters", json={"season_id": sid, "title": "1화"}).json()["id"]
+    c.put(f"/api/chapter/{cid}/text", json={"text": "원안"})        # head(초기 draft) in-place=원안
+    before = len(c.get(f"/api/chapter/{cid}/versions").json()["versions"])
+    c.post("/api/gen", json={"chapter_id": cid, "mode": "polish"})  # 결과가 새 head 버전
+    vs = c.get(f"/api/chapter/{cid}/versions").json()["versions"]
+    assert len(vs) == before + 1
+    assert version.head_text(cid) == "[polish]원안"                  # 입력=head(원안) → 결과가 head
+    r = c.post("/api/version/revert", json={"chapter_id": cid, "version_id": vs[0]["id"]}).json()
+    assert r["text"] == "원안"                                      # 되돌리기(비파괴) → 본문 복귀
