@@ -15,6 +15,10 @@ def _parse(raw: str) -> dict:
     return json.loads(m.group(0))
 
 
+# 부분수정 문맥 윈도우(글자). 멀리 깔린 인물·복선을 보도록 넉넉하게(롱컨텍스트 대비).
+_CTX_BEFORE, _CTX_AFTER = 2000, 1500
+
+
 def _char_block(cards: list[dict]) -> str:
     if not cards:
         return ""
@@ -42,7 +46,7 @@ def edit(selected: str, before: str = "", after: str = "", world: str = "", styl
     user = (
         (f"[문체 지침]\n{style}\n\n" if style else "")
         + _char_block(cards)
-        + f"[앞 문맥]\n{before[-600:]}\n\n[선택(수정 대상)]\n{selected}\n\n[뒤 문맥]\n{after[:400]}\n\n{instr}"
+        + f"[앞 문맥]\n{before[-_CTX_BEFORE:]}\n\n[선택(수정 대상)]\n{selected}\n\n[뒤 문맥]\n{after[:_CTX_AFTER]}\n\n{instr}"
     )
     raw = client.chat(sys, user, temperature=0.7 if mode == "enrich" else 0.5, max_tokens=4096)
     d = _parse(raw)
