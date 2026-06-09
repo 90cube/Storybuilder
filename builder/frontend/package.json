@@ -14,6 +14,7 @@
     "@fontsource/ibm-plex-sans-kr": "^5.2.8",
     "@fontsource/noto-serif-kr": "^5.2.9",
     "@xyflow/react": "^12.11.0",
+    "diff": "^9.0.0",
     "motion": "^12.40.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
