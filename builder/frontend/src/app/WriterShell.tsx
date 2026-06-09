@@ -12,10 +12,11 @@ import { AnalysisPanel } from "./editor/AnalysisPanel";
 import { useChapterDraft } from "./editor/useChapterDraft";
 import { usePipeline } from "./pipeline/usePipeline";
 import { PipelineRail } from "./pipeline/PipelineRail";
-import { ResultDiff } from "./pipeline/ResultDiff";
 import { CharPanel } from "./pipeline/CharPanel";
 import { CanonPanel } from "./pipeline/CanonPanel";
 import { BottomBar } from "./pipeline/BottomBar";
+import { useVersions } from "./version/useVersions";
+import { VersionTimeline } from "./version/VersionTimeline";
 import { EntityEditor } from "./EntityEditor";
 import { LaneCanvas } from "./LaneCanvas";
 import w from "./writer.module.css";
@@ -45,7 +46,7 @@ function WriterShellInner() {
 
   // 본문 초안: chapterId 변화로 자동 초기화. text·doSave·sel은 파이프라인에서도 사용.
   const cid = active?.chapter.id ?? null;
-  const draft = useChapterDraft({ chapterId: cid, initialText: active?.texts.draft?.text ?? "" });
+  const draft = useChapterDraft({ chapterId: cid, initialText: active?.texts.current?.text ?? active?.texts.draft?.text ?? "" });
   const { text, saved, sel, onText, onSelectText, doSave, replaceSelection, insertAfterSelection, setSel } = draft;
 
   const refreshDb = useCallback(async () => {
@@ -54,7 +55,9 @@ function WriterShellInner() {
   }, [api.graphEntities, currentProj]);
   useEffect(() => { refreshDb(); }, [refreshDb]);
 
-  const pipe = usePipeline({ active, setActive, text, doSave, applyText: draft.setText, refreshDb, autoAnalyze, setAutoAnalyze });
+  const versions = useVersions(cid, draft.setText);  // 버전 트리(되돌리기 시 에디터 본문 갱신)
+  const pipe = usePipeline({ active, setActive, text, doSave, applyText: draft.setText, refreshDb,
+    refreshVersions: versions.reload, autoAnalyze, setAutoAnalyze });
 
   const openChapter = async (id: number) => {
     const d = await api.getChapter(id);
@@ -91,9 +94,7 @@ function WriterShellInner() {
       : pipe.cands
         ? <CharPanel cands={pipe.cands} cards={pipe.cards} busy={pipe.busy}
             onAssist={pipe.onAssist} onRegister={pipe.onRegister} onClose={pipe.closeCands} />
-        : pipe.result
-          ? <ResultDiff result={pipe.result} text={text} onAccept={pipe.accept} onClose={pipe.closeResult} />
-          : editor;
+        : editor;
   const centerInner = centerMode === "entities"
     ? <EntityEditor onChanged={refreshDb} />
     : centerMode === "canvas"
@@ -110,7 +111,12 @@ function WriterShellInner() {
       <div className={w.centerInner}>{centerInner}</div>
     </div>
   );
-  const right = <PipelineRail active={active} text={text} busy={pipe.busy} onDetect={pipe.onDetect} onCanonDiff={pipe.onCanonDiff} />;
+  const right = (
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0, overflow: "auto" }}>
+      <PipelineRail active={active} text={text} busy={pipe.busy} onDetect={pipe.onDetect} onCanonDiff={pipe.onCanonDiff} />
+      {active && <VersionTimeline versions={versions.versions} head={versions.head} onRevert={versions.revert} />}
+    </div>
+  );
 
   const layout = (a: number, b: number, c: number) =>
     <ResizableSplit panes={[{ defaultSize: a, minSize: 12, content: left },

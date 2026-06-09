@@ -14,17 +14,17 @@ type Opts = {
   setActive: React.Dispatch<React.SetStateAction<ChapterDetail | null>>;
   text: string;
   doSave: () => Promise<void>;
-  applyText: (s: string) => void;     // draft.setText — accept 시 결과를 본문에 반영
+  applyText: (s: string) => void;     // draft.setText — 생성 결과(새 head)를 에디터 본문에 반영
   refreshDb: () => void;
+  refreshVersions: () => void;        // 생성으로 새 버전이 생기면 타임라인 갱신
   autoAnalyze: boolean;
   setAutoAnalyze: (on: boolean) => void;
 };
 
 export function usePipeline(opts: Opts) {
-  const { active, setActive, text, doSave, applyText, refreshDb, autoAnalyze, setAutoAnalyze } = opts;
+  const { active, setActive, text, doSave, applyText, refreshDb, refreshVersions, autoAnalyze, setAutoAnalyze } = opts;
   const api = useCreatorCtx();
   const [busy, setBusy] = useState<string>("");
-  const [result, setResult] = useState<{ kind: string; text: string } | null>(null);
   const [cands, setCands] = useState<Cand[] | null>(null);
   const [cards, setCards] = useState<Record<string, Card>>({});
   const [canon, setCanon] = useState<Canon | null>(null);
@@ -38,7 +38,7 @@ export function usePipeline(opts: Opts) {
 
   /** 화 전환 시 파이프라인 결과 초기화 (openChapter가 호출). */
   const resetForChapter = useCallback(() => {
-    setCands(null); setCanon(null); setResult(null); setStagedNote(""); setAnalysis(null);
+    setCands(null); setCanon(null); setStagedNote(""); setAnalysis(null);
   }, []);
 
   // ── 초안 실시간 분석 (전체 노드·엣지·사건). 수동 버튼 + 자동(입력 멈춘 뒤). ──
@@ -68,23 +68,18 @@ export function usePipeline(opts: Opts) {
     return () => window.clearTimeout(aTimer.current);
   }, [text, cid, autoAnalyze, analyzeNow]);
 
-  // ── 생성·채택 ──
+  // ── 생성: 결과가 곧 새 head 버전 → 에디터 즉시 반영 + 버전 타임라인 갱신(맘에 안 들면 되돌리기) ──
   const onToggle = async (mode: string) => {
     if (!active || busy) return;
-    setBusy(mode); setResult(null);
+    setBusy(mode);
     try {
-      await doSave();  // 생성은 DB의 초안을 읽으므로 먼저 flush
+      await doSave();  // 현재 head를 먼저 저장(생성 입력)
       const r = await api.gen(active.chapter.id, mode);
-      setResult({ kind: r.kind, text: r.text });
+      applyText(r.text);                       // 결과 = 새 head → 에디터 본문 갱신
       setActive({ ...active, state: r.state });
+      refreshVersions();                       // 새 버전 노드 타임라인에 반영
     } catch (e) { alert("생성 실패: " + (e as Error).message); }
     finally { setBusy(""); }
-  };
-  const accept = async () => {
-    if (!active || !result) return;
-    applyText(result.text);  // textRef 동기화는 draft.setText가 보장 → doSave가 최신 본문 저장
-    await doSave();
-    setResult(null);
   };
 
   // ── 캐릭터 감지·보조·등록 ──
@@ -131,15 +126,14 @@ export function usePipeline(opts: Opts) {
     catch (e) { alert("초안 확정 실패: " + (e as Error).message); }
   };
 
-  // 패널 개별 닫기 — 원본 setResult/setCands/setCanon(null)과 동일(해당 상태만 비움).
-  const closeResult = useCallback(() => setResult(null), []);
+  // 패널 개별 닫기.
   const closeCands = useCallback(() => setCands(null), []);
   const closeCanon = useCallback(() => setCanon(null), []);
 
   return {
-    busy, result, cands, cards, canon, analysis, stagedNote, autoAnalyze, setAutoAnalyze,
-    resetForChapter, onToggle, accept, onDetect, onAssist, onRegister,
+    busy, cands, cards, canon, analysis, stagedNote, autoAnalyze, setAutoAnalyze,
+    resetForChapter, onToggle, onDetect, onAssist, onRegister,
     onCanonDiff, onPromote, analyzeNow, onStage, onConfirmDraft,
-    closeResult, closeCands, closeCanon,
+    closeCands, closeCanon,
   };
 }

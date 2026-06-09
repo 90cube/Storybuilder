@@ -18,8 +18,9 @@ export type EntityFull = { id: string; name: string; category: string; descripti
 export type ChapterDetail = {
   chapter: { id: number; project_id: number; season_id: number; title: string };
   state: string;
-  texts: Record<string, { text: string; version: number }>;
+  texts: Record<string, { text: string; version: number }>;  // texts.current = 현재 head 본문
 };
+export type VersionRow = { id: number; parent_id: number | null; kind: string; label: string; created_at: string };
 
 async function j<T>(url: string, opts?: RequestInit): Promise<T> {
   const r = await fetch(url, opts);
@@ -41,6 +42,10 @@ export const listChapters = (seasonId: number) => j<Chapter[]>(`/api/chapters?se
 export const createChapter = (seasonId: number, title: string) => post("/api/chapters", { season_id: seasonId, title });
 export const getChapter = (id: number) => j<ChapterDetail>(`/api/chapter/${id}`);
 export const statesList = () => j<string[]>("/api/pipeline/states");  // 정적 단계목록(앱 1회 로드)
+export const listVersions = (cid: number) =>
+  j<{ versions: VersionRow[]; head: number | null }>(`/api/chapter/${cid}/versions`);
+export const revertVersion = (cid: number, versionId: number) =>
+  post("/api/version/revert", { chapter_id: cid, version_id: versionId }) as Promise<{ head: number; text: string }>;
 export const saveText = (id: number, text: string) =>
   j(`/api/chapter/${id}/text`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }) });
 export const advance = (id: number, to_state: string) => post(`/api/run/${id}/advance`, { to_state });

@@ -174,3 +174,14 @@
 .peReg { background: none; border: none; color: var(--jade); cursor: pointer; font-size: var(--fs-xs); margin-left: 4px; }
 .tlNow { margin-left: 6px; font: 700 9px/1 var(--font-mono); color: var(--ember-bright); background: var(--ember-glow); border: 1px solid var(--ember-deep); border-radius: 999px; padding: 2px 6px; }
 .canonState { color: var(--arcane); font-size: var(--fs-xs); }
+
+/* 버전 히스토리 패널 (우측 레일 하단) */
+.verPanel { padding: 10px 12px; border-top: 1px solid var(--line); }
+.verHead { font: 600 var(--fs-xs)/1 var(--font-mono); color: var(--text-mut); text-transform: uppercase; letter-spacing: .1em; margin-bottom: 8px; }
+.verRow { display: flex; align-items: center; gap: 8px; padding: 5px 6px; border-radius: var(--r-sm); font-size: var(--fs-sm); }
+.verRow[data-head="true"] { background: var(--ember-glow); }
+.verKind { color: var(--text); flex: 1; }
+.verTime { color: var(--text-mut); font: 400 10px/1 var(--font-mono); flex: none; }
+.verNow { font: 700 9px/1 var(--font-mono); color: var(--ember-bright); border: 1px solid var(--ember-deep); border-radius: 999px; padding: 2px 7px; flex: none; }
+.verBtn { background: none; border: 1px solid var(--line-2); color: var(--arcane); cursor: pointer; font-size: var(--fs-xs); border-radius: var(--r-sm); padding: 2px 8px; flex: none; }
+.verBtn:hover { border-color: var(--arcane-dim); }
