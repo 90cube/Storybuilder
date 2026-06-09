@@ -185,3 +185,4 @@
 .verNow { font: 700 9px/1 var(--font-mono); color: var(--ember-bright); border: 1px solid var(--ember-deep); border-radius: 999px; padding: 2px 7px; flex: none; }
 .verBtn { background: none; border: 1px solid var(--line-2); color: var(--arcane); cursor: pointer; font-size: var(--fs-xs); border-radius: var(--r-sm); padding: 2px 8px; flex: none; }
 .verBtn:hover { border-color: var(--arcane-dim); }
+.verBranch { color: var(--text-mut); font-family: var(--font-mono); margin-right: 4px; flex: none; }

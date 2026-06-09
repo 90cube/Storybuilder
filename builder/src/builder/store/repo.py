@@ -111,7 +111,7 @@ def rename_chapter(cid: int, title: str) -> None:
 def _wipe_chapters(c, cids: list[int]) -> None:
     """화들과 그 종속(원고·런·자동저장·생성잡)을 제거. 같은 트랜잭션 내."""
     for cid in cids:
-        for t in ("manuscripts", "pipeline_runs", "autosaves", "gen_jobs"):
+        for t in ("manuscripts", "pipeline_runs", "autosaves", "gen_jobs", "versions"):
             c.execute(f"DELETE FROM {t} WHERE chapter_id=?", (cid,))
         c.execute("DELETE FROM chapters WHERE id=?", (cid,))
 

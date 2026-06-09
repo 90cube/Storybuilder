@@ -34,10 +34,13 @@ def update_head_text(chapter_id: int, text: str) -> None:
     hid = head_id(chapter_id)
     if hid is not None:
         with get_conn() as c:
-            row = c.execute("SELECT kind FROM versions WHERE id=?", (hid,)).fetchone()
-            if row and row["kind"] in ("draft", "manual"):
-                c.execute("UPDATE versions SET text=?, created_at=? WHERE id=?", (text, _now(), hid))
-                return
+            row = c.execute("SELECT kind, text FROM versions WHERE id=?", (hid,)).fetchone()
+            if row:
+                if row["text"] == text:
+                    return  # 변경 없음 → 노드/갱신 생략(화 열기·무편집 자동저장 잡음 방지)
+                if row["kind"] in ("draft", "manual"):
+                    c.execute("UPDATE versions SET text=?, created_at=? WHERE id=?", (text, _now(), hid))
+                    return
     create(chapter_id, text, kind="manual")
 
 
