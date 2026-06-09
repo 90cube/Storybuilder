@@ -22,6 +22,19 @@ def test_version_create_head_revert_branch():
     assert version.head_text(cid) == "초안"
     v3 = version.create(cid, "분기본", kind="polish")        # parent=현 head(v1) → 분기
     rows = version.list(cid)
-    assert len(rows) == 3
-    assert {r["id"]: r["parent_id"] for r in rows}[v3] == v1   # v3 부모 = v1
+    assert len(rows) == 4   # 초기 draft(create_chapter) + v1 + v2 + v3
+    assert {r["id"]: r["parent_id"] for r in rows}[v3] == v1   # v3 부모 = v1(분기)
     assert version.head_text(cid) == "분기본"
+
+
+def test_chapter_initial_version_and_autosave_head():
+    _fresh()
+    from builder.store import repo, version
+    pid = repo.create_project("작")
+    sid = repo.list_seasons(pid)[0]["id"]
+    cid = repo.create_chapter(sid, "1화")
+    assert version.head_text(cid) == ""          # 초기 빈 draft 버전이 head
+    repo.save_draft_text(cid, "새본문")
+    assert version.head_text(cid) == "새본문"     # 자동저장이 head를 in-place 갱신
+    assert len(version.list(cid)) == 1            # draft head in-place → 노드 안 늘어남
+    assert repo.get_chapter(cid)["texts"]["current"]["text"] == "새본문"  # 에디터 본문 = head

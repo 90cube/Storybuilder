@@ -90,7 +90,9 @@ def create_chapter(season_id: int, title: str = "", idx: int = 0) -> int:
                   (cid, "DRAFT", _now()))
         c.execute("INSERT INTO manuscripts(chapter_id,kind,text,version,created_at) VALUES(?,?,?,?,?)",
                   (cid, "draft", "", 1, _now()))
-        return cid
+    from builder.store import version  # 지연 import(순환 회피)
+    version.create(cid, "", kind="draft")  # 초기 head 버전
+    return cid
 
 
 def list_chapters(season_id: int) -> list[dict]:
@@ -142,9 +144,13 @@ def get_chapter(chapter_id: int) -> dict | None:
         for r in c.execute("""SELECT kind,text,version FROM manuscripts
                               WHERE chapter_id=? ORDER BY version""", (chapter_id,)):
             texts[r["kind"]] = {"text": r["text"], "version": r["version"]}
-        return {"chapter": dict(ch),
-                "state": run["state"] if run else "DRAFT",
-                "texts": texts}
+        result = {"chapter": dict(ch),
+                  "state": run["state"] if run else "DRAFT",
+                  "texts": texts}
+    from builder.store import version  # 에디터 본문 = 현재 head 버전(본문모델 단일화)
+    result["texts"]["current"] = {"text": version.head_text(chapter_id),
+                                  "version": version.head_id(chapter_id) or 0}
+    return result
 
 
 # ── manuscripts / autosave ──
@@ -161,6 +167,8 @@ def save_draft_text(chapter_id: int, text: str) -> None:
         c.execute("""DELETE FROM autosaves WHERE chapter_id=? AND id NOT IN
                      (SELECT id FROM autosaves WHERE chapter_id=? ORDER BY id DESC LIMIT ?)""",
                   (chapter_id, chapter_id, AUTOSAVE_KEEP))
+    from builder.store import version  # 에디터 본문은 head 버전 — 자동저장이 head 갱신(in-place)
+    version.update_head_text(chapter_id, text)
 
 
 def add_manuscript(chapter_id: int, kind: str, text: str) -> int:
