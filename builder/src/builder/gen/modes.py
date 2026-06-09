@@ -4,11 +4,21 @@ from builder.llm import client
 from builder.llm.world import world_name, world_intro
 
 
-def build_system(world: str = "") -> str:
-    return (f"너는 〈{world_name(world)}〉 세계관 소설 편집자이자 작가다.\n{world_intro(world)}\n"
-            "세계관 정합성을 지키고, 과장된 미사여구·클리셰를 피하며, 구체적 동기와 인과로 장면을 굴린다. "
-            "원문의 사건·설정·인물 상태를 임의로 바꾸지 않는다. 한국어로, 자연스러운 소설 문체로 쓴다. "
-            "출력은 본문만. 메타발언·사족·머리말 금지.")
+# 모드별 지시 한 줄(공통 시스템에 결합). expand의 '확장'과 polish의 '보존'이 충돌하지 않게 분리.
+_MODE_SYS: dict[str, str] = {
+    "draft": "원문의 사건·설정은 유지하며, 흐름과 문장을 자연스럽게 다시 정리한다.",
+    "polish": "원문의 사건·설정·인물 상태는 그대로 두고, 문장·리듬·가독성만 다듬는다.",
+    "expand": "기존 사건 골격과 설정은 유지하되, 장면 묘사·심리·대사를 풍부하게 확장한다(분량을 크게 키운다).",
+}
+
+
+def build_system(world: str = "", mode: str = "polish") -> str:
+    """모드별 시스템 프롬프트. 문체는 고정하지 않고 문체 지침에 위임(결과 납작해짐 방지)."""
+    return (f"너는 〈{world_name(world)}〉의 소설 작가이자 편집자다.\n{world_intro(world)}\n"
+            "세계관 정합성과 인물의 말투·성격·상태를 지키고, 인물의 동기와 인과로 장면을 굴린다. "
+            f"{_MODE_SYS.get(mode, _MODE_SYS['polish'])} "
+            "문체·톤은 주어진 문체 지침을 따르고, 없으면 작품 기존 산문의 결을 잇는다. "
+            "한국어로 쓴다. 출력은 본문만. 메타발언·사족·머리말 금지.")
 
 # mode → (저장 kind, temperature, max_tokens, 지시)
 MODES: dict[str, tuple[str, float, int, str]] = {
@@ -30,5 +40,5 @@ def generate(mode: str, text: str, world: str = "", system: str | None = None) -
         raise ValueError(f"알 수 없는 생성 모드: {mode}")
     kind, temp, max_tokens, instr = MODES[mode]
     user = f"{instr}\n\n[원문]\n{text or '(빈 초안)'}"
-    out = client.chat(system or build_system(world), user, temperature=temp, max_tokens=max_tokens)
+    out = client.chat(system or build_system(world, mode), user, temperature=temp, max_tokens=max_tokens)
     return kind, out
