@@ -59,3 +59,20 @@ def test_api_gen_creates_version_and_revert(monkeypatch):
     assert version.head_text(cid) == "[polish]원안"                  # 입력=head(원안) → 결과가 head
     r = c.post("/api/version/revert", json={"chapter_id": cid, "version_id": vs[0]["id"]}).json()
     assert r["text"] == "원안"                                      # 되돌리기(비파괴) → 본문 복귀
+
+
+def test_migrate_seeds_legacy_chapter():
+    _fresh()
+    import builder.store.db as dbmod
+    from builder.store import repo, version
+    from builder.store.db import get_conn
+    pid = repo.create_project("p")
+    sid = repo.list_seasons(pid)[0]["id"]
+    # 레거시 데이터 시뮬레이션: create_chapter 우회로 버전 없이 화·run(head NULL)·draft 원고만 존재.
+    with get_conn() as c:
+        c.execute("INSERT INTO chapters(project_id,season_id,idx,title) VALUES(?,?,0,'old')", (pid, sid))
+        cid = c.execute("SELECT last_insert_rowid() id").fetchone()["id"]
+        c.execute("INSERT INTO pipeline_runs(chapter_id,state,updated_at) VALUES(?,'DRAFT','t')", (cid,))
+        c.execute("INSERT INTO manuscripts(chapter_id,kind,text,version,created_at) VALUES(?,'draft','옛본문',1,'t')", (cid,))
+        dbmod._migrate_seed_versions(c)
+    assert version.head_text(cid) == "옛본문"   # 기존 화도 현재 본문으로 head 시드

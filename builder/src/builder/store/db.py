@@ -45,6 +45,24 @@ def _migrate(conn) -> None:
         conn.execute("ALTER TABLE pipeline_runs ADD COLUMN head_version_id INTEGER")
     _migrate_project_scope(conn)
     _migrate_categories(conn)
+    _migrate_seed_versions(conn)
+
+
+def _migrate_seed_versions(conn) -> None:
+    """기존 화(버전 없음)에 현재 본문(final>expand>polish>draft)으로 초기 버전 시드 + head 지정. 멱등."""
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc).isoformat()
+    for r in conn.execute("SELECT chapter_id FROM pipeline_runs WHERE head_version_id IS NULL").fetchall():
+        cid = r["chapter_id"]
+        text = ""
+        for kind in ("final", "expand", "polish", "draft"):
+            m = conn.execute("SELECT text FROM manuscripts WHERE chapter_id=? AND kind=? ORDER BY version DESC LIMIT 1",
+                             (cid, kind)).fetchone()
+            if m and m["text"]:
+                text = m["text"]; break
+        vid = conn.execute("""INSERT INTO versions(chapter_id,parent_id,kind,text,label,created_at,created_by)
+                              VALUES(?,?,?,?,?,?,?)""", (cid, None, "draft", text, "", now, "migrate")).lastrowid
+        conn.execute("UPDATE pipeline_runs SET head_version_id=? WHERE chapter_id=?", (vid, cid))
 
 
 def _migrate_categories(conn) -> None:
