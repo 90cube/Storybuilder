@@ -68,7 +68,13 @@ CREATE TABLE IF NOT EXISTS manuscripts (
 -- FSM: 화 1개의 일생 (§3 기획서 13단계)
 CREATE TABLE IF NOT EXISTS pipeline_runs (
   id INTEGER PRIMARY KEY AUTOINCREMENT, chapter_id INTEGER NOT NULL UNIQUE,
-  state TEXT DEFAULT 'DRAFT', payload_json TEXT, updated_at TEXT,
+  state TEXT DEFAULT 'DRAFT', payload_json TEXT, updated_at TEXT, head_version_id INTEGER,
+  FOREIGN KEY (chapter_id) REFERENCES chapters(id)
+);
+-- 화 본문 버전 트리(분기·롤백). 현재 head = pipeline_runs.head_version_id.
+CREATE TABLE IF NOT EXISTS versions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT, chapter_id INTEGER NOT NULL, parent_id INTEGER,
+  kind TEXT, text TEXT NOT NULL, label TEXT, created_at TEXT, created_by TEXT,
   FOREIGN KEY (chapter_id) REFERENCES chapters(id)
 );
 CREATE TABLE IF NOT EXISTS autosaves (
@@ -84,6 +90,7 @@ CREATE INDEX IF NOT EXISTS ix_seasons_project ON seasons(project_id);
 CREATE INDEX IF NOT EXISTS ix_chapters_project ON chapters(project_id);
 -- ix_chapters_season은 season_id 컬럼 마이그레이션 후 _migrate에서 생성
 CREATE INDEX IF NOT EXISTS ix_manuscripts_chapter ON manuscripts(chapter_id);
+CREATE INDEX IF NOT EXISTS ix_versions_chapter ON versions(chapter_id, id);
 CREATE INDEX IF NOT EXISTS ix_autosaves_chapter ON autosaves(chapter_id);
 CREATE INDEX IF NOT EXISTS ix_timeline_entity ON timeline(entity_id);
 CREATE INDEX IF NOT EXISTS ix_secrets_entity ON secrets(entity_id);
