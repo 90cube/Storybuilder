@@ -5,7 +5,6 @@ from pydantic import BaseModel, Field
 
 from builder.store import repo, graph, entity, export
 from builder.schemadef import loader
-from builder.domain import pipeline
 
 router = APIRouter()
 
@@ -56,12 +55,9 @@ def graph_entities(project: int):
 
 @router.post("/graph/entity")
 def graph_entity(body: EntityIn, chapter_id: int):
-    """신캐 등록 (DB_WRITE→DB_SYNC). 화가 속한 작품에 귀속."""
+    """신캐 등록(도구 — 단계 변경 없음). 화가 속한 작품에 귀속."""
     pid = repo.project_of(chapter_id)
     eid = graph.upsert_entity(body.model_dump(), pid)
-    for s in ("DB_WRITE", "DB_SYNC"):
-        if pipeline.can_advance(repo.get_state(chapter_id), s):
-            repo.set_state(chapter_id, s)
     return {"id": eid}
 
 

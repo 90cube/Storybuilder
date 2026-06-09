@@ -29,7 +29,7 @@ def _final_text(ch: dict) -> str:
 
 @router.post("/detect/{chapter_id}")
 def detect(chapter_id: int):
-    """현재 원고에서 신규 캐릭터 후보 감지 (CHAR_DETECT). 최신 polish>draft 텍스트 사용."""
+    """현재 원고에서 신규 캐릭터 후보 감지(도구 — 단계 변경 없음). 최신 polish>draft 텍스트 사용."""
     ch = repo.get_chapter(chapter_id)
     if not ch:
         raise HTTPException(404, "chapter not found")
@@ -40,14 +40,12 @@ def detect(chapter_id: int):
         cands = extract_svc.detect_new_characters(text, graph.known_names(pid), world=repo.world_of(chapter_id))
     except Exception as e:
         raise HTTPException(500, f"{type(e).__name__}: {e}")
-    if pipeline.can_advance(repo.get_state(chapter_id), "CHAR_DETECT"):
-        repo.set_state(chapter_id, "CHAR_DETECT")
     return {"candidates": cands, "state": repo.get_state(chapter_id)}
 
 
 @router.post("/postprocess/polish/{chapter_id}")
 def pp_polish(chapter_id: int):
-    """완성본 전문 → (강제 초기화) 부분 다듬기. EXPAND→…→CTX_RESET_B."""
+    """완성본 전문 → (강제 초기화) 부분 다듬기(도구 — 단계 변경 없음)."""
     ch = repo.get_chapter(chapter_id)
     if not ch:
         raise HTTPException(404, "chapter not found")
@@ -56,7 +54,6 @@ def pp_polish(chapter_id: int):
     except Exception as e:
         raise HTTPException(500, f"{type(e).__name__}: {e}")
     repo.add_manuscript(chapter_id, "final", out)
-    repo.set_state(chapter_id, "CTX_RESET_B")
     return {"text": out, "state": repo.get_state(chapter_id)}
 
 
@@ -84,8 +81,9 @@ def canon_diff(chapter_id: int):
 
 @router.post("/canon/promote")
 def canon_promote(body: PromoteIn):
-    """승인 항목을 canon 승격 + DB 반영(작품 한정) + 타임라인 기록. DB_SYNC2→CHAPTER_SAVE."""
+    """승인 항목을 canon 승격 + DB 반영(작품 한정) + 타임라인 기록. EXTRACT→PROMOTE."""
     res = canon.promote(body.entities, body.relations, repo.project_of(body.chapter_id),
                         body.events, chapter_id=body.chapter_id)
-    repo.set_state(body.chapter_id, "CHAPTER_SAVE")
+    if pipeline.can_advance(repo.get_state(body.chapter_id), "PROMOTE"):
+        repo.set_state(body.chapter_id, "PROMOTE")
     return {**res, "state": repo.get_state(body.chapter_id)}

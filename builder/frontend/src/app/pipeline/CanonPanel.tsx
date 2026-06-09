@@ -15,7 +15,7 @@ export function CanonPanel({ canon, onPromote, onClose }: Props) {
   return (
     <div className={w.editorWrap}>
       <div className={w.diffHead}>
-        <span>정사 승격 (DB_SYNC2) · 엔티티 {canon.entities.length} · 관계 {canon.relations.length} · 사건 {canon.events.length}</span>
+        <span>정사 승격 · 엔티티 {canon.entities.length} · 관계 {canon.relations.length} · 사건 {canon.events.length}</span>
         <span style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
           <Button variant="primary" onClick={onPromote}>전체 승격 → canon</Button>
           <Button variant="ghost" onClick={onClose}>닫기</Button>

@@ -34,7 +34,7 @@ export function PipelineRail({ active, text, busy, onDetect, onCanonDiff }: Prop
       </div>
       <div className={w.toggles}>
         <span className={w.lbl}>구조화</span>
-        <Button variant={cur === "CHAR_DETECT" ? "primary" : "default"} disabled={toolsOff} onClick={onDetect}>
+        <Button variant="default" disabled={toolsOff} onClick={onDetect}>
           {busy === "detect" ? <><Spinner /> 감지 중…</> : "캐릭터 감지"}
         </Button>
         <Button variant={cur === "EXTRACT" ? "primary" : "default"} disabled={toolsOff} onClick={onCanonDiff}>

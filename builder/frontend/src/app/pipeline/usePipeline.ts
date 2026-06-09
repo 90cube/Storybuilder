@@ -101,8 +101,7 @@ export function usePipeline(opts: Opts) {
     const c = cards[name];
     await api.registerEntity({ name, category: "character", description: c?.description ?? "", speech_style: c?.speech_style ?? "", relations: c?.relations ?? [] }, active.chapter.id);
     setCands((cs) => cs?.filter((x) => x.name !== name) ?? null);
-    setActive((a) => a && { ...a, state: "DB_SYNC" });
-    refreshDb();
+    refreshDb();  // 등록은 도구 — 파이프라인 단계 변경 없음
   };
 
   // ── 정사 추출·승격 ──

@@ -46,6 +46,20 @@ def _migrate(conn) -> None:
     _migrate_project_scope(conn)
     _migrate_categories(conn)
     _migrate_seed_versions(conn)
+    _migrate_fsm_states(conn)
+
+
+# 구 14상태 → 슬림 6단계 리맵(FSM 슬림화). 멱등.
+_FSM_REMAP = {
+    "CHAR_DETECT": "POLISH", "DB_WRITE": "POLISH", "DB_SYNC": "POLISH", "REVISE": "POLISH",
+    "CTX_RESET_A": "EXPAND", "PARTIAL_POLISH": "EXPAND", "CTX_RESET_B": "EXPAND",
+    "DB_SYNC2": "EXTRACT", "CHAPTER_SAVE": "PROMOTE",
+}
+
+
+def _migrate_fsm_states(conn) -> None:
+    for old, new in _FSM_REMAP.items():
+        conn.execute("UPDATE pipeline_runs SET state=? WHERE state=?", (new, old))
 
 
 def _migrate_seed_versions(conn) -> None:

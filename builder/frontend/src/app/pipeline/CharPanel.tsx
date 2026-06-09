@@ -18,7 +18,7 @@ export function CharPanel({ cands, cards, busy, onAssist, onRegister, onClose }:
   return (
     <div className={w.editorWrap}>
       <div className={w.diffHead}>
-        <span>신규 캐릭터 감지 · {cands.length}명 (CHAR_DETECT)</span>
+        <span>신규 캐릭터 감지 · {cands.length}명</span>
         <span style={{ marginLeft: "auto" }}><Button variant="ghost" onClick={onClose}>닫기</Button></span>
       </div>
       <div className={w.charList}>
