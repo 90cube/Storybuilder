@@ -58,8 +58,9 @@ def head_text(chapter_id: int) -> str:
 
 
 def list(chapter_id: int) -> list[dict]:
-    """버전 목록(본문 제외, 표시용). 최신은 id 큰 쪽."""
+    """버전 목록(전문 제외 + 첫 60자 발췌, 표시용). 최신은 id 큰 쪽."""
     with get_conn() as c:
         return [dict(r) for r in c.execute(
-            "SELECT id,parent_id,kind,label,created_at FROM versions WHERE chapter_id=? ORDER BY id",
+            "SELECT id,parent_id,kind,label,created_at, SUBSTR(text,1,60) AS excerpt "
+            "FROM versions WHERE chapter_id=? ORDER BY id",
             (chapter_id,))]

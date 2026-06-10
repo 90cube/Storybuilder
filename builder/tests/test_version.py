@@ -61,6 +61,28 @@ def test_api_gen_creates_version_and_revert(monkeypatch):
     assert r["text"] == "원안"                                      # 되돌리기(비파괴) → 본문 복귀
 
 
+def test_version_list_excerpt_and_get_endpoint():
+    """목록은 발췌(excerpt)만 싣고(전문 제외), 단건 조회로 전문을 가져온다."""
+    _fresh()
+    from builder.store import repo, version
+    from builder.api.app import create_app
+    from fastapi.testclient import TestClient
+    c = TestClient(create_app())
+    pid = repo.create_project("작")
+    sid = repo.list_seasons(pid)[0]["id"]
+    cid = repo.create_chapter(sid, "1화")
+    long_text = "첫 문장입니다. " * 30                      # 발췌 길이 초과 본문
+    vid = version.create(cid, long_text, kind="polish")
+    rows = c.get(f"/api/chapter/{cid}/versions").json()["versions"]
+    row = next(r for r in rows if r["id"] == vid)
+    assert row["excerpt"].startswith("첫 문장입니다.")        # 발췌 제공
+    assert len(row["excerpt"]) <= 60                          # 전문이 아닌 발췌
+    assert "text" not in row                                  # 목록엔 전문 미포함(전송 절약)
+    r = c.get(f"/api/version/{vid}")
+    assert r.status_code == 200 and r.json()["text"] == long_text   # 단건은 전문
+    assert c.get("/api/version/999999").status_code == 404
+
+
 def test_migrate_seeds_legacy_chapter():
     _fresh()
     import builder.store.db as dbmod
