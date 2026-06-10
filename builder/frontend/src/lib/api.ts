@@ -20,7 +20,7 @@ export type ChapterDetail = {
   state: string;
   texts: Record<string, { text: string; version: number }>;  // texts.current = 현재 head 본문
 };
-export type VersionRow = { id: number; parent_id: number | null; kind: string; label: string; created_at: string };
+export type VersionRow = { id: number; parent_id: number | null; kind: string; label: string; created_at: string; excerpt: string };
 
 async function j<T>(url: string, opts?: RequestInit): Promise<T> {
   const r = await fetch(url, opts);
@@ -46,6 +46,7 @@ export const listVersions = (cid: number) =>
   j<{ versions: VersionRow[]; head: number | null }>(`/api/chapter/${cid}/versions`);
 export const revertVersion = (cid: number, versionId: number) =>
   post("/api/version/revert", { chapter_id: cid, version_id: versionId }) as Promise<{ head: number; text: string }>;
+export const getVersion = (versionId: number) => j<{ id: number; text: string }>(`/api/version/${versionId}`);
 export const saveText = (id: number, text: string) =>
   j(`/api/chapter/${id}/text`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }) });
 export const advance = (id: number, to_state: string) => post(`/api/run/${id}/advance`, { to_state });

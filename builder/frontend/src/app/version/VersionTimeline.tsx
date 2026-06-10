@@ -28,10 +28,11 @@ function treeRows(versions: VersionRow[]): { v: VersionRow; depth: number }[] {
   return rows;
 }
 
-export function VersionTimeline({ versions, head, onRevert }: {
+export function VersionTimeline({ versions, head, onRevert, onPreview }: {
   versions: VersionRow[];
   head: number | null;
   onRevert: (id: number) => void;
+  onPreview: (v: VersionRow) => void;
 }) {
   if (!versions.length) return null;
   const rows = treeRows(versions);
@@ -41,7 +42,10 @@ export function VersionTimeline({ versions, head, onRevert }: {
       {rows.map(({ v, depth }) => (
         <div key={v.id} className={w.verRow} data-head={v.id === head} style={{ paddingLeft: 6 + depth * 16 }}>
           {depth > 0 && <span className={w.verBranch}>└</span>}
-          <span className={w.verKind}>{KIND[v.kind] || "• " + v.kind}</span>
+          <span className={w.verMain} title="클릭하면 현재본과 비교 미리보기" onClick={() => onPreview(v)}>
+            <span className={w.verKind}>{KIND[v.kind] || "• " + v.kind}</span>
+            {(v.excerpt || "").trim() && <span className={w.verExcerpt}>“{v.excerpt.replace(/\s+/g, " ").trim()}”</span>}
+          </span>
           <span className={w.verTime}>{(v.created_at || "").slice(11, 16)}</span>
           {v.id === head
             ? <span className={w.verNow}>현재</span>

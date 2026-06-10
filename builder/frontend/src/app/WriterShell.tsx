@@ -17,6 +17,7 @@ import { CanonPanel } from "./pipeline/CanonPanel";
 import { BottomBar } from "./pipeline/BottomBar";
 import { useVersions } from "./version/useVersions";
 import { VersionTimeline } from "./version/VersionTimeline";
+import { VersionPreviewPane } from "./version/VersionPreviewPane";
 import { useDiffReview } from "./review/useDiffReview";
 import { DiffReviewPane } from "./review/DiffReviewPane";
 import { EntityEditor } from "./EntityEditor";
@@ -134,7 +135,11 @@ function WriterShellInner() {
               onAcceptAll={() => void applyMerged(review.finishAll())}
               onCancelAll={() => void cancelReview()}
               onFinish={() => void applyMerged(review.finish())} />
-          : editor;
+          : versions.preview
+            ? <VersionPreviewPane row={versions.preview.row} text={versions.preview.text} currentText={text}
+                onRevert={() => void versions.revert(versions.preview!.row.id)}
+                onClose={versions.closePreview} />
+            : editor;
   const centerInner = centerMode === "entities"
     ? <EntityEditor onChanged={refreshDb} />
     : centerMode === "canvas"
@@ -156,7 +161,8 @@ function WriterShellInner() {
       <PipelineRail active={active} text={text} busy={review.st ? "review" : pipe.busy}
         onDetect={pipe.onDetect} onCanonDiff={pipe.onCanonDiff} />
       {active && <VersionTimeline versions={versions.versions} head={versions.head}
-        onRevert={review.st ? async () => {} : versions.revert} />}
+        onRevert={review.st ? async () => {} : versions.revert}
+        onPreview={review.st ? () => {} : (v) => void versions.openPreview(v)} />}
     </div>
   );
 
